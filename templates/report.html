@@ -1,0 +1,131 @@
+{% extends "index.html" %}
+{% block content %}
+
+<section class="flex gap-4 md:flex-row flex-col">
+    <div class="md:basis-2/3 basis-full">
+        <button id="burger" class="md:hidden block z-[999] absolute"><i class='bx bx-menu text-4xl' ></i></button>
+        <p class="text-2xl text-[#7163BA] md:mt-20 mt-12">Road Damage Detection</p>
+        <div class="flex">
+            <div class="basis-1/2 ">
+                <p class="text-xs font-bold">Lokasi Inspeksi</p>
+                <form action="" class="relative w-fit">
+                    <input type="text" name="" id="" class="md:w-[288px] w-100 h-[32px] rounded-[8px] border border-[#AEADAD] bg-[#F6F7F7] text-xs ps-6" placeholder="Lokasi Inspeksi">
+                    <button type="submit" class="absolute right-6 top-1/2 -translate-y-1/2">
+                        <i class='bx bx-search'></i>
+                    </button>
+                </form>
+            </div>
+            <div class="basis-1/2">
+                <p class="text-xs font-bold">Tanggal Inspeksi</p>
+                <form action="" class="relative w-fit">
+                    <input type="date" name="" id="" class="md:w-[288px] w-100 h-[32px] rounded-[8px] border-[#AEADAD] border text-xs px-6">
+                </form>
+            </div>
+        </div>
+        <div class="relative mt-5 w-100 h-96 rounded-[12px] border border-[#D4D0E799] flex justify-center items-center">
+            <div class="flex flex-col justify-center items-center gap-2 absolute" id="menuButton">
+                <button class="block w-[213px] h-[32px] bg-[#7163BA] rounded-[9px] text-white text-xs" id="file">
+                    <i class='bx bx-upload' ></i>
+                    Upload File
+                </button>
+                <button class="block w-[213px] h-[32px] bg-[#7163BA] rounded-[9px] text-white text-xs" id="onwebcam">
+                    <i class='bx bx-camera' ></i>
+                    On Kamera
+                </button>
+                <form action="{{ url_for('stop') }}">
+                    <button name="stop" type="submit" class="w-[213px] h-[32px] bg-[#7163BA] rounded-[9px] text-white text-xs hidden" id="offwebcam">
+                        <i class='bx bx-camera-off'></i>
+                        Off Kamera
+                    </button>
+                </form>
+            </div>
+            <img src="" alt="" class="w-100 h-96 rounded-[12px] border border-[#D4D0E799] hidden" id="camera">
+        </div>
+        <div class="py-4">
+            <p class="text-2xl text-[#7163BA] my-8">Mapping Peta</p>
+            <div id="map" class="h-[448px]"></div>
+        </div>
+    </div>
+    <div class="md:basis-1/3 basis-full bg-[#EBECF0] rounded-l-[15px] flex items-center flex-col pt-20">
+        <div class="bg-white px-6 py-4 rounded-[12px]">
+            <div>
+                <p class="text-[14px] font-bold">Gambar Pendeteksian</p>
+                <img src="" alt="" class="w-100 h-[174px] rounded-xl border border-[#D4D0E799]">
+            </div>
+            <div class="py-4 rounded-[12px] mt-5">
+                <p class="text-[14px] font-bold">Jenis Kerusakan</p>
+                <p class="text-xs font-normal">Rusak berat</p>
+            </div>
+            <div class="py-4 rounded-[12px]">
+                <p class="text-[14px] font-bold">Koordinat Lokasi Kerusakan</p>
+                <p class="text-xs font-normal" id="lokasi">Rusak berat</p>
+                <p class="text-xs font-normal" id="koordinat">Rusak berat</p>
+            </div>
+            <button class="block w-[213px] h-[32px] bg-[#7163BA] rounded-[9px] text-white text-xs">
+                Save report
+            </button>
+        </div>
+    </div>
+</section>
+
+<script>
+    let a = document.querySelectorAll(".sidebar")
+    a.forEach(b=>{
+        if(b.href === window.location.href){
+            b.classList.add("text-white")
+            b.classList.add("bg-[#7163BA]")
+        }else{
+            b.classList.remove("text-white")
+            b.classList.remove("bg-[#7163BA]")
+        }
+    })
+
+    let onWebcam = document.getElementById("onwebcam"),
+        btnFile = document.getElementById("file"),
+        offWebcam = document.getElementById("offwebcam"),
+        imgWebcam = document.getElementById("camera"),
+        menuDetect = document.getElementById("menuButton")
+
+    onWebcam.onclick = () =>{
+        menuDetect.classList.add("bottom-0")
+        onWebcam.classList.replace("block", "hidden")
+        btnFile.classList.replace("block", "hidden")
+        offWebcam.classList.replace("hidden", "block")
+        imgWebcam.classList.replace("hidden", "block")
+        imgWebcam.src = "http://127.0.0.1:5000/video"
+    }
+
+    offWebcam.onclick = () =>{
+        menuDetect.classList.remove("bottom-0")
+        offWebcam.classList.replace("block", "hidden")
+        imgWebcam.classList.replace("block", "hidden")
+        onWebcam.classList.replace("hidden", "block")
+        btnFile.classList.replace("hidden", "block")
+        imgWebcam.src = "http://127.0.0.1:5000/video"
+    }
+
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition((position)=>{
+            let map = L.map('map').setView([position.coords.latitude, position.coords.longitude], 19);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+            L.marker([position.coords.latitude, position.coords.longitude]).addTo(map)
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`)
+                .then(res=>res.json())
+                .then(data=>{
+                    document.getElementById("lokasi").innerText = data.locality
+                    document.getElementById("koordinat").innerText = `( ${data.latitude}, ${data.longitude} )`
+                })
+                .catch(err=>console.warn(err))
+        })
+    }
+
+    let burger = document.getElementById("burger"),
+        sidebar = document.getElementById("sidebar")
+    burger.onclick = () =>{
+        sidebar.classList.toggle("start-[-200px]")
+    }
+</script>
+{% endblock %}

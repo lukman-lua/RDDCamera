@@ -1,0 +1,368 @@
+{% extends "index.html" %}
+
+    {% block css %}
+        <style>
+            .ungu_rdd {
+                color: #7163BA;
+            }
+            .start_hover:hover {
+                background-color: #5B4A99;
+            }
+            .responsive-image {
+                width: 100%; /* mengikuti lebar layar */
+                height: auto;   /* menjaga rasio aspek */
+                max-height: 562px; /* maksimum tinggi */
+                max-width: 1000px;
+            }
+
+            .container-camera {
+                width: 85%;
+                max-width: 1000px;
+                height: auto;   /* menjaga rasio aspek */
+                max-height: 562px; /* maksimum tinggi */
+            }
+
+            .hiddens {
+                display: none; /* Kelas untuk menyembunyikan kontainer */
+            }
+
+        </style>
+    {% endblock %}
+
+    {% block content %}
+
+
+
+       <div class="container ml-6">
+
+           <p class="mt-5 text-[22px] font-medium font-['DM Sans'] tracking-tight ungu_rdd">
+                    Real-time Road Damage Detection
+               <button onclick="openModal('modelConfirm')"
+                       id="startInspection"
+                       class="ml-5 menu_color start_hover text-white font-bold py-2 px-4 rounded">
+                  Start Inspection
+               </button>
+           </p>
+
+            <div id="modelConfirm" class="fixed hidden z-50 inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full px-4 ">
+                <div class="relative top-40 mx-auto shadow-xl rounded-md bg-white max-w-md">
+
+                    <div class="flex justify-end p-2">
+                        <button onclick="closeModal('modelConfirm')" type="button"
+                            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd"
+                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                    clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="p-6 pt-0 text-center">
+
+                        <img class="w-40 h-40 mx-auto" src = "{{ url_for('static', filename='detection.svg') }}" alt="Detection"/>
+
+                        <h3 class="text-xl font-normal text-gray-500 mt-5 mb-6">Check GPS Signal and Camera Battery before Start the Inspection</h3>
+                        <a href="#" id="command"  onclick="closeModal('modelConfirm', 1)"
+                            class="menu_color text-white focus:ring-4 font-medium rounded-lg text-base inline-flex items-center px-3 py-2.5 text-center mr-2">
+                            Start
+                        </a>
+                        <a href="#" onclick="closeModal('modelConfirm', 0)"
+                            class="text-gray-900 bg-white hover:bg-gray-100 focus:ring-4 focus:ring-cyan-200 border border-gray-200 font-medium inline-flex items-center rounded-lg text-base px-3 py-2.5 text-center"
+                            data-modal-toggle="delete-user-modal">
+                            Cancel
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+
+           <div class="container-camera mt-5 ml-6">
+               <img src="http://127.0.0.1:5000/video_feed" alt="Webcam Stream" class="responsive-image">
+           </div>
+
+
+           <p class="mt-5 text-[22px] font-medium font-['DM Sans'] tracking-tight ungu_rdd">
+                    Mapping Location
+           </p>
+
+           <div class="mt-5 ml-6" id="map" style="height: 562px; width: 1000px;">
+
+           </div>
+
+
+       </div>
+
+
+    {% endblock %}
+
+    {% block toast %}
+
+        <div class="fixed right-0 mr-7 mt-7 mb-7 ">
+
+            <button class="fixed right-2 top-3 inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-purple-600 to-blue-500 group-hover:from-purple-600 group-hover:to-blue-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800">
+                <span id="toggleButton" class="relative px-5 py-2.5 transition-all ease-in duration-75 hover:text-white bg-white ungu_rdd rounded-md group-hover:bg-opacity-0">
+                    Hide Damages
+                </span>
+            </button>
+
+            <div id="scrollableContent" class="overflow-y-scroll max-h-screen pt-9">
+
+            </div>
+
+        </div>
+
+<!--        <script>-->
+
+<!--             var list_damage = [-->
+
+<!--                    { 'jenis': 'Lubang', 'location': [-0.9204940061422356, 100.45219478769393] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9209130853419367, 100.45165606688559] },-->
+<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9211317017382106, 100.45137397632048] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.922213998633106, 100.44987365097846] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9224243310559838, 100.44958440643916] },-->
+<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9228187051941161, 100.44907822741702] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.9235088596018981, 100.44650131553881] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9237323716020713, 100.44437642765152] },-->
+<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9239733779897845, 100.44318657859046] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9242547639122143, 100.44137279044752] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.9244125134687571, 100.44023553147355] },-->
+<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9248748073579813, 100.43888791200314] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9254926595850885, 100.4378141989972] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.925943998427265, 100.43656518563219] },-->
+<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.925821304341567, 100.4352964511902] },-->
+<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9263296082797787, 100.43364205637133] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.9267678012610889, 100.43240180808044] },-->
+<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9271249284641617, 100.43139164086591] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9279947415235155, 100.4297679224295] },-->
+<!--                    { 'jenis': 'Lubang', 'location': [-0.9288273075945431, 100.4281529711544] },-->
+<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9295766171648314, 100.42657307843957] },-->
+<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9288119707216079, 100.42694778333215] }-->
+
+<!--                ];-->
+
+<!--            var currentIndex = 0;-->
+
+<!--            var damageIcon = L.icon({-->
+<!--              iconUrl: '{{ url_for('static', filename='damage.svg') }}', // Path to your custom icon image-->
+<!--              iconSize: [38, 95], // Size of the icon-->
+<!--              iconAnchor: [22, 94], // Point of the icon which will correspond to marker's location-->
+<!--              popupAnchor: [-3, -76] // Point from which the popup should open relative to the iconAnchor-->
+<!--            });-->
+
+<!--            // Buat fungsi untuk menginisiasi peta-->
+<!--            function initMap(position) {-->
+<!--              // Dapatkan koordinat dari geolokasi-->
+<!--              var lat = -0.9147898986919377;-->
+<!--              var lon = 100.45887357348603;-->
+
+<!--              // Buat peta Leaflet dan set view ke lokasi pengguna-->
+<!--              var map = L.map('map').setView([lat, lon], 20);-->
+
+<!--              // Tambahkan layer peta-->
+<!--              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {-->
+<!--                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'-->
+<!--              }).addTo(map);-->
+
+<!--              // Tambahkan penanda pada lokasi pengguna-->
+<!--              L.marker([lat, lon]).addTo(map).bindPopup("Inspection Start Point").openPopup();-->
+
+<!--              // Mulai scheduler-->
+<!--              setInterval(function() { scheduler(map); }, 5000);-->
+<!--            }-->
+
+<!--            function updateLocation(damage, map) {-->
+<!--              var lat = damage['location'][0];-->
+<!--              var lon = damage['location'][1];-->
+<!--              map.setView([lat, lon], 20);-->
+<!--              L.marker([lat, lon], { icon: damageIcon }).addTo(map).bindPopup(` <img class="w-[80px] h-[60px] mt-5 rounded-xl border-4" src="https://via.placeholder.com/129x93" /> ${damage['jenis']}`).openPopup();-->
+<!--            }-->
+
+<!--            function createToast(damage) {-->
+<!--                let toastElement = document.querySelector("#scrollableContent");-->
+<!--                let tempContainer = document.createElement('div');-->
+<!--                let toastHtml = `-->
+<!--                <div id="toast-message-cta" class="w-full p-3 pl-2 mb-4 text-gray-500 menu_color rounded-lg shadow dark:text-gray-400" role="alert">-->
+<!--                    <div class="flex">-->
+
+<!--                       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">-->
+<!--                            <path fill="white" d="M18 4h2v9h-2zM4 4h2v16H4zm7 0h2v4h-2zm0 6h2v4h-2zm0 6h2v4h-2zm11.5.41L21.09 15L19 17.09L16.91 15l-1.41 1.41l2.09 2.09l-2.09 2.09L16.91 22L19 19.91L21.09 22l1.41-1.41l-2.09-2.09z" />-->
+<!--                        </svg>-->
+
+<!--                        <div class="text-sm font-normal">-->
+
+<!--                            <span class="ml-5 text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
+<!--                                ${damage['jenis']}-->
+<!--                            </span>-->
+
+<!--                            <img class="w-[240px] h-[135px] mt-5 rounded-xl border-4" src="https://via.placeholder.com/129x93" />-->
+
+<!--                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
+<!--                                Count : 1-->
+<!--                            </h3>-->
+<!--                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
+<!--                                Location : <h6 class="text-white">${damage['location'][0]} ,</h6>-->
+<!--                                            <h6 class="text-white">${damage['location'][0]}</h6>-->
+<!--                            </h3>-->
+
+<!--                        </div>-->
+
+
+<!--                        <button type="button" class="ms-auto border-transparent -mx-1.5 -my-1.5 menu_color text-gray-400 hover:text-gray-900 rounded-lg p-1.5 hover:bg-gray-600 inline-flex items-center justify-center h-10 w-10 dark:text-gray-500 dark:hover:text-white focus:border-transparent" data-dismiss-target="#toast-success" aria-label="Close">-->
+
+<!--                            <span class="sr-only">Expand</span>-->
+<!--                            <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 448 512">-->
+<!--                                <path fill="white" d="M0 180V56c0-13.3 10.7-24 24-24h124c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H64v84c0 6.6-5.4 12-12 12H12c-6.6 0-12-5.4-12-12M288 44v40c0 6.6 5.4 12 12 12h84v84c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12V56c0-13.3-10.7-24-24-24H300c-6.6 0-12 5.4-12 12m148 276h-40c-6.6 0-12 5.4-12 12v84h-84c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h124c13.3 0 24-10.7 24-24V332c0-6.6-5.4-12-12-12M160 468v-40c0-6.6-5.4-12-12-12H64v-84c0-6.6-5.4-12-12-12H12c-6.6 0-12 5.4-12 12v124c0 13.3 10.7 24 24 24h124c6.6 0 12-5.4 12-12" />-->
+<!--                            </svg>-->
+
+<!--                        </button>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                `;-->
+
+<!--                tempContainer.innerHTML = toastHtml;-->
+<!--                let newElement = tempContainer.firstElementChild;-->
+<!--                toastElement.prepend(newElement);-->
+
+<!--            }-->
+
+
+<!--            function scheduler(map) {-->
+<!--                updateLocation(list_damage[currentIndex], map);-->
+<!--                createToast(list_damage[currentIndex]);-->
+<!--                currentIndex = (currentIndex + 1) % list_damage.length; // Loop back to the start of the list-->
+<!--            }-->
+
+<!--            // Fungsi error untuk geolokasi-->
+<!--            function showError(error) {-->
+<!--              console.warn("Tidak dapat mengakses geolokasi: ", error.message);-->
+<!--            }-->
+
+<!--            // Meminta izin untuk menggunakan geolokasi dan menginisiasi peta jika izin diberikan-->
+<!--            if (navigator.geolocation) {-->
+<!--              navigator.geolocation.getCurrentPosition(initMap, showError);-->
+<!--            } else {-->
+<!--              console.warn("Geolokasi tidak didukung di browser ini.");-->
+<!--            }-->
+
+<!--            const toggleButton = document.getElementById('toggleButton');-->
+<!--            const contentContainer = document.getElementById('scrollableContent');-->
+
+<!--            toggleButton.addEventListener('click', function() {-->
+<!--                // Periksa apakah kontainer saat ini tersembunyi-->
+<!--                if (contentContainer.classList.contains('hiddens')) {-->
+<!--                    // Tampilkan kontainer dan ubah teks tombol-->
+<!--                    contentContainer.classList.remove('hiddens');-->
+<!--                    toggleButton.textContent = 'Hide Damages';6-->
+<!--                } else {-->
+<!--                    // Sembunyikan kontainer dan ubah teks tombol-->
+<!--                    contentContainer.classList.add('hiddens');-->
+<!--                    toggleButton.textContent = 'Show Damages';-->
+<!--                }-->
+<!--            });-->
+
+
+<!--        </script>-->
+
+<script type="text/javascript">
+    document.getElementById("command").textContent = "Start"
+    window.openModal = function(modalId) {
+        document.getElementById(modalId).style.display = 'block'
+        document.getElementsByTagName('body')[0].classList.add('overflow-y-hidden')
+    }
+
+    window.closeModal = function(modalId, command) {
+        document.getElementById(modalId).style.display = 'none'
+        document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
+        if (command == 1){
+            let commandStatus = document.getElementById("command").textContent
+            if (commandStatus == "Start"){
+                let startInsp = startInspection();
+                if (startInsp){
+                    document.getElementById("startInspection").textContent = "End Inspection"
+                    document.getElementById("startInspection").classList.remove("menu_color")
+                    document.getElementById("startInspection").classList.add("on_proccess")
+                    document.getElementById("command").textContent = "End"
+                    document.getElementById("command").classList.remove("menu_color")
+                    document.getElementById("command").classList.add("on_proccess")
+                }
+            } else {
+                let endInsp = endInspection();
+                if (endInsp){
+                    document.getElementById("startInspection").textContent = "Start Inspection"
+                    document.getElementById("startInspection").classList.remove("on_proccess")
+                    document.getElementById("startInspection").classList.add("menu_color")
+                    document.getElementById("command").textContent = "Start"
+                    document.getElementById("command").classList.remove("on_proccess")
+                    document.getElementById("command").classList.add("menu_color")
+                }
+            }
+
+        }
+    }
+
+    // Close all modals when press ESC
+    document.onkeydown = function(event) {
+        event = event || window.event;
+        if (event.keyCode === 27) {
+            document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
+            let modals = document.getElementsByClassName('modal');
+            Array.prototype.slice.call(modals).forEach(i => {
+                i.style.display = 'none'
+            })
+        }
+    };
+
+    async function startInspection(){
+        try {
+            const apiUrl = "http://127.0.0.1:5000/rdd/start"; // URL endpoint API
+
+            const response = await fetch(apiUrl, {
+              method: "GET", // Metode HTTP
+              headers: {
+                "Content-Type": "application/json", // Memberikan tipe konten JSON
+              },
+            });
+
+            // Periksa status respons
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Parsing respons menjadi JSON
+            const result = await response.json();
+            console.log("Response from API:", result);
+            return result['status'];
+          } catch (error) {
+            console.error("Error sending data:", error);
+            return 0;
+          }
+    }
+
+    async function endInspection(){
+        try {
+            const apiUrl = "http://127.0.0.1:5000/rdd/end"; // URL endpoint API
+            const response = await fetch(apiUrl, {
+              method: "GET", // Metode HTTP
+              headers: {
+                "Content-Type": "application/json", // Memberikan tipe konten JSON
+              },
+            });
+
+            // Periksa status respons
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Parsing respons menjadi JSON
+            const result = await response.json();
+            console.log("Response from API:", result);
+            return result['status'];
+          } catch (error) {
+            console.error("Error sending data:", error);
+          }
+    }
+
+</script>
+
+    {% endblock %}
