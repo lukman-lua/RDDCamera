@@ -6,11 +6,11 @@ from ultralytics import YOLO
 # Load the YOLO model
 model = YOLO("model/best.pt")
 
-video_path = "../Jetson_IMX519_Focus_Example/output_1.avi"
+video_path = "0104.mp4"
 
 cap = cv2.VideoCapture(video_path)
 
-prev_time = 0
+prev_time = 0	
 
 while True:
     frame_count = 0  # Counter for frames
@@ -23,7 +23,8 @@ while True:
         conf=0.4, 
         iou=0.4, 
         persist=True, 
-        tracker="model/botsort.yaml"
+        tracker="model/botsort.yaml",
+        device="cuda"
     )
     
     for result in results:  # 'results' is plural, so loop over it

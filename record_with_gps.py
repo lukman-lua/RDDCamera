@@ -6,19 +6,21 @@ import serial
 import argparse
 import csv
 from datetime import datetime
-from JetsonCamera import Camera
-from Focuser import Focuser
-from Autofocus import FocusState, doFocus
+from imx519.JetsonCamera import Camera
+from imx519.Focuser import Focuser
+from imx519.Autofocus import FocusState, doFocus
 
 # Global variables
 exit_ = False
 recording = False
 video_writer = None
+frame_count = 0
+start_time = time.time()
+
+# GPS Global variables
 gps_port = "/dev/ttyTHS1"  # Sesuaikan port GPS
 baud_rate = 115200
 ser = serial.Serial(gps_port, baud_rate, timeout=3)
-frame_count = 0
-start_time = time.time()
 
 # Signal handler untuk menangani shutdown
 def sigint_handler(signum, frame):
@@ -45,9 +47,21 @@ def start_recording(frame):
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     now = datetime.now()
     filename = now.strftime("output_%m_%d_%H_%M.avi")
+    gps_filename = datetime.now().strftime("gps_%m_%d_%H_%M.csv")
+
+    # Tulis metadata awal ke CSV
+    with open(gps_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["# Metadata"])
+        writer.writerow(["# Device", "Jetson Nano"])
+        writer.writerow(["# GPS Model", "UBlox NEO-6M"])
+        writer.writerow(["# Recording Start", datetime.now().isoformat()])
+        writer.writerow(["Timestamp", "Latitude", "Longitude"])
+        
+        
     video_writer = cv2.VideoWriter(filename, fourcc, 30.0, (frame.shape[1], frame.shape[0]))
     print(f"Recording started: {filename}")
-    return filename  # Mengembalikan nama file video
+    return filename, gps_filename  # Mengembalikan nama file video
 
 # Fungsi untuk menghentikan perekaman video
 def stop_recording():
@@ -80,6 +94,9 @@ def parse_nmea_sentence(nmea_sentence):
             longitude = longitude if lon_dir == 'E' else -longitude
 
             return latitude, longitude
+        else:
+            print("Menunggu GPS untuk mendapatkan fix...")
+            return False
     return None, None
 
 # Menyimpan metadata & GPS ke CSV
@@ -101,28 +118,13 @@ if __name__ == "__main__":
     frame_count = 0
     start_time = time.time()
     
-    gps_filename = datetime.now().strftime("gps_%m_%d_%H_%M.csv")
+    gps_filename = ""
+    
 
-    # Tulis metadata awal ke CSV
-    with open(gps_filename, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["# Metadata"])
-        writer.writerow(["# Device", "Jetson Nano"])
-        writer.writerow(["# GPS Model", "UBlox NEO-6M"])
-        writer.writerow(["# Recording Start", datetime.now().isoformat()])
-        writer.writerow(["Timestamp", "Latitude", "Longitude"])
 
     while not exit_:
         frame = camera.getFrame(2000)
         cv2.imshow("Camera Feed", frame)
-
-        # Ambil data GPS
-        if ser.in_waiting > 0:
-            line = ser.readline().decode('ascii', errors='replace').strip()
-            latitude, longitude = parse_nmea_sentence(line)
-            if latitude and longitude:
-                timestamp = datetime.now().isoformat()
-                save_gps_data(gps_filename, timestamp, latitude, longitude)
 
         key = cv2.waitKey(1)
         
@@ -139,12 +141,19 @@ if __name__ == "__main__":
                 stop_recording()
                 recording = False
             else:
-                video_filename = start_recording(frame)
+                video_filename, gps_filename = start_recording(frame)
                 recording = True
         
         # Menulis frame ke video jika recording aktif
         if recording and video_writer:
             video_writer.write(frame)
+            # Ambil data GPS
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('ascii', errors='replace').strip()
+                latitude, longitude = parse_nmea_sentence(line)
+                if latitude and longitude:
+                    timestamp = datetime.now().isoformat()
+                    save_gps_data(gps_filename, timestamp, latitude, longitude)
 
         # Hitung FPS
         frame_count += 1

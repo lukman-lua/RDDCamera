@@ -4,9 +4,9 @@ import cv2
 import threading
 import argparse
 from datetime import datetime
-from JetsonCamera import Camera
-from Focuser import Focuser
-from Autofocus import FocusState, doFocus
+from imx519.JetsonCamera import Camera
+from imx519.Focuser import Focuser
+from imx519.Autofocus import FocusState, doFocus
 
 exit_ = False
 recording = False
