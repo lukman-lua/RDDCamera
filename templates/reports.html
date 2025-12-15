@@ -1,0 +1,214 @@
+{% extends "index.html" %}
+{% block content %}
+
+<section class="flex gap-4 md:flex-row flex-col">
+    <div class="md:basis-2/3 basis-full">
+        <button id="burger" class="md:hidden block z-[999] absolute"><i class='bx bx-menu text-4xl' ></i></button>
+        <p class="text-2xl text-[#7163BA] md:mt-20 mt-12">RDD REPORT</p>
+        <div class="flex">
+            <div class="basis-1/2 ">
+<!--                <p class="text-xs font-bold">Lokasi Inspeksi</p>-->
+<!--                <form action="" class="relative w-fit">-->
+<!--                    <input type="text" name="" id="" class="md:w-[288px] w-100 h-[32px] rounded-[8px] border border-[#AEADAD] bg-[#F6F7F7] text-xs ps-6" placeholder="Lokasi Inspeksi">-->
+<!--                    <button type="submit" class="absolute right-6 top-1/2 -translate-y-1/2">-->
+<!--                        <i class='bx bx-search'></i>-->
+<!--                    </button>-->
+<!--                </form>-->
+            </div>
+            <div class="basis-1/2">
+                <p class="text-xs font-bold">Tanggal Inspeksi</p>
+                <form action="" class="relative w-fit">
+                    <input type="date" name="" id="dateChanges" class="md:w-[288px] w-100 h-[32px] rounded-[8px] border-[#AEADAD] border text-xs px-6">
+                </form>
+            </div>
+        </div>
+
+        <div class="relative rounded-[12px] border border-[#D4D0E799] mt-6">
+            <div class="overflow-x-auto ">
+                <table class="min-w-full bg-white rounded-2xl shadow-md overflow-hidden">
+                  <!-- Header -->
+                  <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-sm font-semibold">No</th>
+                      <th class="px-4 py-3 text-left text-sm font-semibold">Location</th>
+                      <th class="px-4 py-3 text-left text-sm font-semibold">Date</th>
+                      <th class="px-4 py-3 text-left text-sm font-semibold">Details</th>
+                    </tr>
+                  </thead>
+
+                  <!-- Body -->
+                  <tbody id="reportTable" class="divide-y divide-gray-200">
+                    
+                  </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="py-4">
+            <p id="mapping" class="text-2xl text-[#7163BA] my-8">Mapping Inspection</p>
+            <div id="map" class="h-[448px]"></div>
+        </div>
+    </div>
+    <div class="md:basis-1/3 basis-full bg-[#EBECF0] mt-12 rounded-l-[15px] flex items-center flex-col pt-20 min-w-[280px] max-w-[380px]">
+        <div class="bg-white px-6 py-4 rounded-[12px] min-w-[280px] max-w-[330px]">
+            <div>
+                <p class="text-[14px] font-bold">Details</p>
+            </div>
+            <div class="py-4 rounded-[12px] mt-5">
+                <p class="text-[14px] font-bold">Location</p>
+                <p id="addressStat" class="text-xs font-normal"></p>
+                <p id="locationStat" class="text-xs font-normal"></p>
+            </div>
+            <div class="py-4 rounded-[12px]">
+                <p class="text-[14px] font-bold">Statistik</p>
+                <p class="text-xs font-normal" id="lokasi">Craks : </p>
+                <p class="text-xs font-normal" id="longi">Longitudinal : </p>
+                <p class="text-xs font-normal" id="trans">Transverse : </p>
+                <p class="text-xs font-normal" id="alligator">Alligator : </p>
+                <p class="text-xs font-normal" id="potholes">Potholes : </p>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<script>
+    const socket = io();
+    let a = document.querySelectorAll(".sidebar")
+    a.forEach(b=>{
+        if(b.href === window.location.href){
+            b.classList.add("text-white")
+            b.classList.add("bg-[#7163BA]")
+        }else{
+            b.classList.remove("text-white")
+            b.classList.remove("bg-[#7163BA]")
+        }
+    })
+
+
+    // Ambil tanggal hari ini
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    let mm = today.getMonth() + 1; // bulan mulai dari 0
+    let dd = today.getDate();
+
+    // Format jadi YYYY-MM-DD
+    if (dd < 10) dd = '0' + dd;
+    if (mm < 10) mm = '0' + mm;
+
+    const formattedToday = yyyy + '-' + mm + '-' + dd;
+
+    var map = ''
+    var markers = ''
+
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition((position)=>{
+            map = L.map('map').setView([position.coords.latitude, position.coords.longitude], 19);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+            // LayerGroup buat kumpulin semua marker
+            markers = L.layerGroup().addTo(map);
+            // Set value ke input date
+            document.getElementById("dateChanges").value = formattedToday;
+            report_changes(formattedToday);
+        })
+    }
+
+
+
+    let burger = document.getElementById("burger"),
+        sidebar = document.getElementById("sidebar")
+    burger.onclick = () =>{
+        sidebar.classList.toggle("start-[-200px]")
+    }
+
+        //     //
+        //     Socket IO Function     //
+
+    socket.on('connect', function() {
+        console.log("✅ Connected to server");
+    });
+
+    function report_changes() {
+        socket.emit('report_click', {
+            date: document.getElementById("dateChanges").value,
+        });
+    }
+
+    function report_click(inspection_id, coordinat){
+        event.preventDefault();
+        socket.emit('report_changes', {
+            inspection_id: inspection_id,
+            coordinat: coordinat,
+        });
+    }
+
+    socket.on('report_update', function(report_list) {
+        console.log("📥 report_update: ", report_list);
+        const tbody = document.getElementById("reportTable");
+        tbody.innerHTML = ""; // reset dulu
+        report_list['report'].forEach((report, index) => {
+            console.log(report);
+            const row = `
+            <tr class="${index % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"}">
+              <td class="px-4 py-3 text-sm">${index + 1}</td>
+              <td class="px-4 py-3 text-sm">${report.address}</td>
+              <td class="px-4 py-3 text-sm">${report.inspect_at}</td>
+              <td class="px-4 py-3">
+                <button type="button" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg flex items-center gap-2" onclick="report_click(${report.id}, '${report.location}')">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  More
+                </button>
+              </td>
+            </tr>
+            `;
+            tbody.insertAdjacentHTML("beforeend", row);
+        });
+        markers.clearLayers();
+
+        report_list['report'].forEach(item => {
+            let [lat, lon] = item.location.split(",").map(Number);
+
+            let marker = L.marker([lat, lon]).addTo(markers);
+
+            // Popup isi info
+            marker.bindPopup(`
+              <b>Waktu:</b> ${item.inspect_at}<br>
+              <b>Alamat:</b> ${item.address}
+            `);
+
+            marker.on('click', function() {
+                document.getElementById("addressStat").innerText = item['address']
+                document.getElementById("locationStat").innerText = item['location']
+
+                document.getElementById("lokasi").innerText = "Craks : " + item['count_crack'];
+                document.getElementById("longi").innerText = "Longitudinal : " + item['count_longitudinal_cracks'];
+                document.getElementById("trans").innerText = "Transverse : " + item['count_transverse_cracks'];
+                document.getElementById("alligator").innerText = "Alligator : " + item['count_alligator_cracks'];
+                document.getElementById("potholes").innerText = "Potholes : " + item['count_potholes'];
+            });
+        });
+        let [lats, lons] = report_list['report'][0].location.split(",").map(Number);
+        map.setView([lats, lons], 20);
+
+    });
+
+    socket.on('disconnect', function() {
+        console.log('Disconnected from Socket.IO server.');
+    });
+
+    // on change date
+    // more report
+    socket.on('more_report', function(data) {
+        print(data);
+    });
+    // statistik report
+
+    // clear report
+
+
+</script>
+{% endblock %}

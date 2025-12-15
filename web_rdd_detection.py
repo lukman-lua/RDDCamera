@@ -1,4 +1,5 @@
 import eventlet
+
 eventlet.monkey_patch()
 
 import csv
@@ -12,7 +13,7 @@ from rdd.inspection import save_cracks, create_inspection, update_inspections, d
 
 app = Flask(__name__, static_folder='assets')
 socketio = SocketIO(app, cors_allowed_origins="*")
-app.config["SERVER_NAME"] = "localhost:5000"   # atau domainmu
+app.config["SERVER_NAME"] = "localhost:5050"   # atau domainmu
 app.config["PREFERRED_URL_SCHEME"] = "http"
 
 # Inisialisasi geolocator
@@ -25,7 +26,7 @@ location_file = "gps_04_20_07_14_test.csv"
 # Open the video file
 video_path = "testvd.mp4" # change with camera
 # cap = cv2.VideoCapture(video_path)
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+# cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 detect_start = True
 
 stop_event = threading.Event()
@@ -130,6 +131,7 @@ def getLocation(start_time):
     # seconds = int(current_time - start_time)
     return [data_gps[start_time]['latitude'], data_gps[start_time]['longitude']]
 
+
 def check_db_updates():
     global socketio,check_db
     while True:
@@ -157,50 +159,27 @@ def check_db_updates():
         except Exception as e:
             print(f"ERROR in background_notification_checker: {e}")
 
+
 def generate_frames():
     global old_coordinat, crack_batch_now, inspection_batch_now, \
         detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status
 
     start_time = datetime.now()
 
-    print("start_time : ", start_time)
-
     old_coordinat = None
-
-    # now_inspection_id = create_inspection(
-    #     "{0},{1}".format(
-    #         data_gps[590]['latitude'], data_gps[590]['longitude']
-    #     )
-    # )
-
-    # if now_inspection_id:
-    #     now_inspection_folder = create_inspection_folder(
-    #         str(now_inspection_id),
-    #         "{0},{1}".format(data_gps[590]['latitude'], data_gps[590]['longitude']),
-    #         datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    #     )
-    #     detect_start = True
-
     started_location = getLocation(590)
+    frame_count = 0  # Counter untuk frame
+
+    # Dapatkan waktu saat ini dalam milidetik
+    current_time = datetime.now()
+    diff_seconds = int((current_time - start_time).total_seconds())
+    cap = cv2.VideoCapture("http://192.168.18.212:5000/video_feed")
     while not stop_event.is_set():
         frame_count = 0  # Counter untuk frame
-        success, frame = cap.read()
-
-        # Inspection Status :
-        # print("")
-        # print("Inspection Status")
-        # print("now_inspection_id : ", now_inspection_id)
-        # print("crack_batch_now : ", crack_batch_now)
-        # print("now_cracks_id : ", now_cracks_id)
-        # print(inspection_session_data)
-        # print("cracks_batch : ", cracks_batch)
-
-        # if not frame_queue.empty():
-        #     # Restart video jika sudah selesai
-        #     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        #     continue
-
-
+        ret, frame = cap.read()
+        if not ret:
+            print("Stream berhenti.")
+            continue
         # Dapatkan waktu saat ini dalam milidetik
         # current_time_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
         current_time = datetime.now()
@@ -210,16 +189,13 @@ def generate_frames():
 
         # frame = cv2.GaussianBlur(frame, (5, 5), 0)  # Mengurangi noise dengan Gaussian Blur
         annotated_frame = frame
-        latest_coordinat = getLocation(590+diff_seconds)
-
+        latest_coordinat = getLocation(590 + diff_seconds)
 
         # print(latest_coordinat)
         print("latest_coordinat : ", latest_coordinat)
 
         results = model.track(frame, conf=0.4, iou=0.5, persist=True, tracker="model/botsort.yaml")
         print("id : ", results[0].boxes.id)
-
-        annotated_frame = frame
 
         if results[0].boxes.id is not None:
             annotated_frame = results[0].plot()
@@ -251,7 +227,8 @@ def generate_frames():
                         now_inspection_folder
                     )
                     with app.app_context():
-                        image_url = url_for('static', filename="inspections/{0}/{1}".format(now_inspection_folder,crack_file_name))
+                        image_url = url_for('static', filename="inspections/{0}/{1}".format(now_inspection_folder,
+                                                                                            crack_file_name))
                     socketio.emit(
                         'data_update',
                         {
@@ -332,18 +309,15 @@ def generate_frames():
             else:
                 print("Gagal Menyimpan crack_data_list")
 
-
-
-
-
         _, buffer = cv2.imencode('.jpg', annotated_frame)
 
         frame_data = base64.b64encode(buffer).decode('utf-8')
-        socketio.emit('frame', {'data': frame_data})
-        eventlet.sleep(0.05)
+        socketio.emit('frame', {'image': frame_data})
+        eventlet.sleep(0.01)  # delay 10ms per frame
 
 @app.route("/")
 def beranda():
+
     return render_template(
         "beranda.html",
         data={'menu': 'rdd'}
@@ -377,6 +351,18 @@ def rdd():
         stop_event.clear()
         thread = threading.Thread(target=generate_frames)
         thread.start()
+    else:
+        # thread masih hidup → stop dulu
+        stop_event.set()
+
+        # tunggu thread benar2 mati
+        thread.join(timeout=2)
+
+        # setelah mati → buat baru
+        stop_event.clear()
+        thread = threading.Thread(target=generate_frames)
+        thread.start()
+
     return render_template(
         "detect.html",
         data={
@@ -503,4 +489,13 @@ def test_disconnect():
 
 if __name__ == "__main__":
     # Jalankan server Flask + Socket.IO
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5050, allow_unsafe_werkzeug=True)
+
+# socketio = SocketIO(app, cors_allowed_origins="*")
+# # === Dari Server 1 (Jetson) ===
+# @socketio.on('camera_frame')
+# def handle_camera_frame(data):
+#     # Broadcast ke semua browser client
+#     socketio.emit('frame', data)
+# if __name__ == '__main__':
+#     socketio.run(app, host='0.0.0.0', port=5050)

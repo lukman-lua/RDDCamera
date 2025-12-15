@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Socket.IO Camera Stream</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { background: #111; color: #fff; text-align: center; font-family: sans-serif; }
+    img { width: 640px; height: 480px; border-radius: 10px; margin-top: 20px; box-shadow: 0 0 15px #333; }
+  </style>
+</head>
+<body>
+  <h2>📡 Live Stream via Socket.IO</h2>
+  <img id="video" />
+
+  <script>
+    const socket = io();
+    const img = document.getElementById("video");
+
+    socket.on("connect", () => {
+      console.log("✅ Terhubung ke Server 2");
+    });
+
+    // Terima frame dari server
+    socket.on("frame", (data) => {
+      const blob = new Blob([data], { type: "image/jpeg" });
+      const url = URL.createObjectURL(blob);
+      img.src = url;
+    });
+  </script>
+</body>
+</html>

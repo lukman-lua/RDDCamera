@@ -26,6 +26,15 @@
                 display: none; /* Kelas untuk menyembunyikan kontainer */
             }
 
+            .popUpImp {
+                z-index: 10000 !important;
+            }
+
+            .popUpImps {
+                z-index: 20000 !important;
+            }
+
+
         </style>
     {% endblock %}
 
@@ -44,7 +53,7 @@
                </button>
            </p>
 
-            <div id="modelConfirm" class="fixed hidden z-50 inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full px-4 ">
+            <div id="modelConfirm" class="fixed hidden popUpImp inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full px-4 ">
                 <div class="relative top-40 mx-auto shadow-xl rounded-md bg-white max-w-md">
 
                     <div class="flex justify-end p-2">
@@ -58,7 +67,7 @@
                         </button>
                     </div>
 
-                    <div class="p-6 pt-0 text-center">
+                    <div class="p-6 pt-0 text-center ">
 
                         <img class="w-40 h-40 mx-auto" src = "{{ url_for('static', filename='detection.svg') }}" alt="Detection"/>
 
@@ -78,7 +87,7 @@
             </div>
 
            <div class="container-camera mt-5 ml-6">
-               <img src="http://127.0.0.1:5000/video_feed" alt="Webcam Stream" class="responsive-image">
+               <img id="video-stream"  alt="Webcam Stream" class="responsive-image">
            </div>
 
 
@@ -89,6 +98,43 @@
            <div class="mt-5 ml-6" id="map" style="height: 562px; width: 1000px;">
 
            </div>
+
+           <div id="roadDamageModal" class="fixed inset-0 popUpImp bg-black bg-opacity-70 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out opacity-0">
+                <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4 transform scale-95 transition-transform duration-300 ease-in-out">
+                    <div class="flex justify-between items-center border-b pb-3 mb-4">
+                        <h2 id="modalTitle" class="text-2xl font-bold text-gray-800"></h2>
+                        <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="text-gray-700 mb-6">
+                        <p id="modalDescription" class="mb-4 text-lg"></p>
+
+                        <div id="crackTypes" class="mb-6">
+                            <h3 class="text-lg font-semibold mb-2">Cracks :</h3>
+                            </div>
+
+                        <div id="damageImages" class="flex flex-wrap gap-3 justify-center">
+                            </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t">
+                        <button id="googleMapsBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                            OK
+                        </button>
+                    </div>
+                    <span id="modalLocation" class="hidden" data-lat="" data-lng=""></span>
+                </div>
+            </div>
+
+            <!-- Modal Preview -->
+            <div id="imageModal" class="fixed popUpImps inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+              <div class="relative">
+                <img id="modalImage" src="" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg">
+                <button id="closeModal" class="absolute top-2 right-2 bg-white text-black px-2 py-1 rounded-full shadow-md">✕</button>
+              </div>
+            </div>
 
 
        </div>
@@ -112,257 +158,479 @@
 
         </div>
 
-<!--        <script>-->
+        <script>
+            const socket = io.connect("http://localhost:5050"); // atau IP server 2
+            var map = null;
+            var max_toast = 5;
+            const img = document.getElementById('video-stream');
 
-<!--             var list_damage = [-->
+            var currentIndex = 0;
 
-<!--                    { 'jenis': 'Lubang', 'location': [-0.9204940061422356, 100.45219478769393] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9209130853419367, 100.45165606688559] },-->
-<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9211317017382106, 100.45137397632048] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.922213998633106, 100.44987365097846] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9224243310559838, 100.44958440643916] },-->
-<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9228187051941161, 100.44907822741702] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.9235088596018981, 100.44650131553881] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9237323716020713, 100.44437642765152] },-->
-<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9239733779897845, 100.44318657859046] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9242547639122143, 100.44137279044752] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.9244125134687571, 100.44023553147355] },-->
-<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9248748073579813, 100.43888791200314] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9254926595850885, 100.4378141989972] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.925943998427265, 100.43656518563219] },-->
-<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.925821304341567, 100.4352964511902] },-->
-<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9263296082797787, 100.43364205637133] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.9267678012610889, 100.43240180808044] },-->
-<!--                    { 'jenis': 'Retak Membujur', 'location': [-0.9271249284641617, 100.43139164086591] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9279947415235155, 100.4297679224295] },-->
-<!--                    { 'jenis': 'Lubang', 'location': [-0.9288273075945431, 100.4281529711544] },-->
-<!--                    { 'jenis': 'Retak Melintanmg', 'location': [-0.9295766171648314, 100.42657307843957] },-->
-<!--                    { 'jenis': 'Retak Buaya', 'location': [-0.9288119707216079, 100.42694778333215] }-->
+            var damageIcon = L.icon({
+              iconUrl: `{{ url_for('static', filename='damage.svg') }}`, // Path to your custom icon image
+              iconSize: [38, 95], // Size of the icon
+              iconAnchor: [22, 94], // Point of the icon which will correspond to marker's location
+              popupAnchor: [-3, -76] // Point from which the popup should open relative to the iconAnchor
+            });
 
-<!--                ];-->
+            // Buat fungsi untuk menginisiasi peta
+            function initMap(position) {
+              // Dapatkan koordinat dari geolokasi
+              var lat = -0.9147898986919377;
+              var lon = 100.45887357348603;
 
-<!--            var currentIndex = 0;-->
+              // Buat peta Leaflet dan set view ke lokasi pengguna
+              map = L.map('map').setView([lat, lon], 20);
 
-<!--            var damageIcon = L.icon({-->
-<!--              iconUrl: '{{ url_for('static', filename='damage.svg') }}', // Path to your custom icon image-->
-<!--              iconSize: [38, 95], // Size of the icon-->
-<!--              iconAnchor: [22, 94], // Point of the icon which will correspond to marker's location-->
-<!--              popupAnchor: [-3, -76] // Point from which the popup should open relative to the iconAnchor-->
-<!--            });-->
+              // Tambahkan layer peta
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              }).addTo(map);
 
-<!--            // Buat fungsi untuk menginisiasi peta-->
-<!--            function initMap(position) {-->
-<!--              // Dapatkan koordinat dari geolokasi-->
-<!--              var lat = -0.9147898986919377;-->
-<!--              var lon = 100.45887357348603;-->
+              // Tambahkan penanda pada lokasi pengguna
+              L.marker([lat, lon]).addTo(map).bindPopup("Inspection Start Point").openPopup();
 
-<!--              // Buat peta Leaflet dan set view ke lokasi pengguna-->
-<!--              var map = L.map('map').setView([lat, lon], 20);-->
+              // Mulai scheduler
+              // setInterval(function() { scheduler(map); }, 5000);
+            }
 
-<!--              // Tambahkan layer peta-->
-<!--              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {-->
-<!--                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'-->
-<!--              }).addTo(map);-->
+            function updateLocation(damage, map) {
+                var lat = damage['location'][0];
+                var lon = damage['location'][1];
+                map.setView([lat, lon], 20);
 
-<!--              // Tambahkan penanda pada lokasi pengguna-->
-<!--              L.marker([lat, lon]).addTo(map).bindPopup("Inspection Start Point").openPopup();-->
+                var marker = L.marker([lat, lon], { icon: damageIcon }).addTo(map);
 
-<!--              // Mulai scheduler-->
-<!--              setInterval(function() { scheduler(map); }, 5000);-->
-<!--            }-->
+                marker.on('click', function() {
+                    socket.emit(
+                        'on-click-map',
+                        {
+                            inspection_id: damage['inspection_id'],
+                            coordinat: `${lat},${lon}`
+                        }
+                    );
+                });
+            }
 
-<!--            function updateLocation(damage, map) {-->
-<!--              var lat = damage['location'][0];-->
-<!--              var lon = damage['location'][1];-->
-<!--              map.setView([lat, lon], 20);-->
-<!--              L.marker([lat, lon], { icon: damageIcon }).addTo(map).bindPopup(` <img class="w-[80px] h-[60px] mt-5 rounded-xl border-4" src="https://via.placeholder.com/129x93" /> ${damage['jenis']}`).openPopup();-->
-<!--            }-->
+            function createToast(damage) {
+                let toastElement = document.querySelector("#scrollableContent");
+                let tempContainer = document.createElement('div');
+                let toastHtml = `
+                <div id="toast-message-cta" class="w-full p-3 pl-2 mb-4 text-gray-500 menu_color rounded-lg shadow dark:text-gray-400" role="alert">
+                    <div class="flex">
 
-<!--            function createToast(damage) {-->
-<!--                let toastElement = document.querySelector("#scrollableContent");-->
-<!--                let tempContainer = document.createElement('div');-->
-<!--                let toastHtml = `-->
-<!--                <div id="toast-message-cta" class="w-full p-3 pl-2 mb-4 text-gray-500 menu_color rounded-lg shadow dark:text-gray-400" role="alert">-->
-<!--                    <div class="flex">-->
+                       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">
+                            <path fill="white" d="M18 4h2v9h-2zM4 4h2v16H4zm7 0h2v4h-2zm0 6h2v4h-2zm0 6h2v4h-2zm11.5.41L21.09 15L19 17.09L16.91 15l-1.41 1.41l2.09 2.09l-2.09 2.09L16.91 22L19 19.91L21.09 22l1.41-1.41l-2.09-2.09z" />
+                        </svg>
 
-<!--                       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">-->
-<!--                            <path fill="white" d="M18 4h2v9h-2zM4 4h2v16H4zm7 0h2v4h-2zm0 6h2v4h-2zm0 6h2v4h-2zm11.5.41L21.09 15L19 17.09L16.91 15l-1.41 1.41l2.09 2.09l-2.09 2.09L16.91 22L19 19.91L21.09 22l1.41-1.41l-2.09-2.09z" />-->
-<!--                        </svg>-->
+                        <div class="text-sm font-normal">
 
-<!--                        <div class="text-sm font-normal">-->
+                            <img class="w-[240px] h-[135px] mt-5 rounded-xl border-4" src="${damage['image']}" />
 
-<!--                            <span class="ml-5 text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
-<!--                                ${damage['jenis']}-->
-<!--                            </span>-->
+                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">
+                                Count : ${damage['count']}
+                            </h3>
+                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">
+                                Location : <h6 class="text-white">${damage['location'][0]} ,</h6>
+                                            <h6 class="text-white">${damage['location'][1]}</h6>
+                            </h3>
 
-<!--                            <img class="w-[240px] h-[135px] mt-5 rounded-xl border-4" src="https://via.placeholder.com/129x93" />-->
-
-<!--                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
-<!--                                Count : 1-->
-<!--                            </h3>-->
-<!--                            <h3 class="text-lg text-white text-sm font-bold font-['DM Sans'] dark:text-white">-->
-<!--                                Location : <h6 class="text-white">${damage['location'][0]} ,</h6>-->
-<!--                                            <h6 class="text-white">${damage['location'][0]}</h6>-->
-<!--                            </h3>-->
-
-<!--                        </div>-->
+                        </div>
 
 
-<!--                        <button type="button" class="ms-auto border-transparent -mx-1.5 -my-1.5 menu_color text-gray-400 hover:text-gray-900 rounded-lg p-1.5 hover:bg-gray-600 inline-flex items-center justify-center h-10 w-10 dark:text-gray-500 dark:hover:text-white focus:border-transparent" data-dismiss-target="#toast-success" aria-label="Close">-->
+                        <button type="button" class="ms-auto border-transparent -mx-1.5 -my-1.5 menu_color text-gray-400 hover:text-gray-900 rounded-lg p-1.5 hover:bg-gray-600 inline-flex items-center justify-center h-10 w-10 dark:text-gray-500 dark:hover:text-white focus:border-transparent" data-dismiss-target="#toast-success" aria-label="Close">
 
-<!--                            <span class="sr-only">Expand</span>-->
-<!--                            <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 448 512">-->
-<!--                                <path fill="white" d="M0 180V56c0-13.3 10.7-24 24-24h124c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H64v84c0 6.6-5.4 12-12 12H12c-6.6 0-12-5.4-12-12M288 44v40c0 6.6 5.4 12 12 12h84v84c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12V56c0-13.3-10.7-24-24-24H300c-6.6 0-12 5.4-12 12m148 276h-40c-6.6 0-12 5.4-12 12v84h-84c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h124c13.3 0 24-10.7 24-24V332c0-6.6-5.4-12-12-12M160 468v-40c0-6.6-5.4-12-12-12H64v-84c0-6.6-5.4-12-12-12H12c-6.6 0-12 5.4-12 12v124c0 13.3 10.7 24 24 24h124c6.6 0 12-5.4 12-12" />-->
-<!--                            </svg>-->
+                            <span class="sr-only">Expand</span>
+                            <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 448 512">
+                                <path fill="white" d="M0 180V56c0-13.3 10.7-24 24-24h124c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H64v84c0 6.6-5.4 12-12 12H12c-6.6 0-12-5.4-12-12M288 44v40c0 6.6 5.4 12 12 12h84v84c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12V56c0-13.3-10.7-24-24-24H300c-6.6 0-12 5.4-12 12m148 276h-40c-6.6 0-12 5.4-12 12v84h-84c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h124c13.3 0 24-10.7 24-24V332c0-6.6-5.4-12-12-12M160 468v-40c0-6.6-5.4-12-12-12H64v-84c0-6.6-5.4-12-12-12H12c-6.6 0-12 5.4-12 12v124c0 13.3 10.7 24 24 24h124c6.6 0 12-5.4 12-12" />
+                            </svg>
 
-<!--                        </button>-->
-<!--                    </div>-->
-<!--                </div>-->
-<!--                `;-->
+                        </button>
+                    </div>
+                </div>
+                `;
 
-<!--                tempContainer.innerHTML = toastHtml;-->
-<!--                let newElement = tempContainer.firstElementChild;-->
-<!--                toastElement.prepend(newElement);-->
+                tempContainer.innerHTML = toastHtml;
+                let newElement = tempContainer.firstElementChild;
+                toastElement.prepend(newElement);
 
-<!--            }-->
-
-
-<!--            function scheduler(map) {-->
-<!--                updateLocation(list_damage[currentIndex], map);-->
-<!--                createToast(list_damage[currentIndex]);-->
-<!--                currentIndex = (currentIndex + 1) % list_damage.length; // Loop back to the start of the list-->
-<!--            }-->
-
-<!--            // Fungsi error untuk geolokasi-->
-<!--            function showError(error) {-->
-<!--              console.warn("Tidak dapat mengakses geolokasi: ", error.message);-->
-<!--            }-->
-
-<!--            // Meminta izin untuk menggunakan geolokasi dan menginisiasi peta jika izin diberikan-->
-<!--            if (navigator.geolocation) {-->
-<!--              navigator.geolocation.getCurrentPosition(initMap, showError);-->
-<!--            } else {-->
-<!--              console.warn("Geolokasi tidak didukung di browser ini.");-->
-<!--            }-->
-
-<!--            const toggleButton = document.getElementById('toggleButton');-->
-<!--            const contentContainer = document.getElementById('scrollableContent');-->
-
-<!--            toggleButton.addEventListener('click', function() {-->
-<!--                // Periksa apakah kontainer saat ini tersembunyi-->
-<!--                if (contentContainer.classList.contains('hiddens')) {-->
-<!--                    // Tampilkan kontainer dan ubah teks tombol-->
-<!--                    contentContainer.classList.remove('hiddens');-->
-<!--                    toggleButton.textContent = 'Hide Damages';6-->
-<!--                } else {-->
-<!--                    // Sembunyikan kontainer dan ubah teks tombol-->
-<!--                    contentContainer.classList.add('hiddens');-->
-<!--                    toggleButton.textContent = 'Show Damages';-->
-<!--                }-->
-<!--            });-->
+            }
 
 
-<!--        </script>-->
+            function scheduler(map) {
+                updateLocation(list_damage[currentIndex], map);
+                createToast(list_damage[currentIndex]);
+                currentIndex = (currentIndex + 1) % list_damage.length; // Loop back to the start of the list
+            }
 
-<script type="text/javascript">
-    document.getElementById("command").textContent = "Start"
-    window.openModal = function(modalId) {
-        document.getElementById(modalId).style.display = 'block'
-        document.getElementsByTagName('body')[0].classList.add('overflow-y-hidden')
-    }
+            // Fungsi error untuk geolokasi
+            function showError(error) {
+              console.warn("Tidak dapat mengakses geolokasi: ", error.message);
+            }
 
-    window.closeModal = function(modalId, command) {
-        document.getElementById(modalId).style.display = 'none'
-        document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
-        if (command == 1){
-            let commandStatus = document.getElementById("command").textContent
-            if (commandStatus == "Start"){
-                let startInsp = startInspection();
-                if (startInsp){
-                    document.getElementById("startInspection").textContent = "End Inspection"
-                    document.getElementById("startInspection").classList.remove("menu_color")
-                    document.getElementById("startInspection").classList.add("on_proccess")
-                    document.getElementById("command").textContent = "End"
-                    document.getElementById("command").classList.remove("menu_color")
-                    document.getElementById("command").classList.add("on_proccess")
-                }
+            // Meminta izin untuk menggunakan geolokasi dan menginisiasi peta jika izin diberikan
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(initMap, showError);
             } else {
-                let endInsp = endInspection();
-                if (endInsp){
-                    document.getElementById("startInspection").textContent = "Start Inspection"
-                    document.getElementById("startInspection").classList.remove("on_proccess")
-                    document.getElementById("startInspection").classList.add("menu_color")
-                    document.getElementById("command").textContent = "Start"
-                    document.getElementById("command").classList.remove("on_proccess")
-                    document.getElementById("command").classList.add("menu_color")
+              console.warn("Geolokasi tidak didukung di browser ini.");
+            }
+
+            const toggleButton = document.getElementById('toggleButton');
+            const contentContainer = document.getElementById('scrollableContent');
+
+            toggleButton.addEventListener('click', function() {
+                // Periksa apakah kontainer saat ini tersembunyi
+                if (contentContainer.classList.contains('hiddens')) {
+                    // Tampilkan kontainer dan ubah teks tombol
+                    contentContainer.classList.remove('hiddens');
+                    toggleButton.textContent = 'Hide Damages';
+                } else {
+                    // Sembunyikan kontainer dan ubah teks tombol
+                    contentContainer.classList.add('hiddens');
+                    toggleButton.textContent = 'Show Damages';
+                }
+            });
+
+
+
+            console.log("Starting...");
+
+
+        //     //
+        //     Preview Craks Function     //
+
+            const roadDamageModal = document.getElementById('roadDamageModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalDescription = document.getElementById('modalDescription');
+            const crackTypesContainer = document.getElementById('crackTypes');
+            const damageImagesContainer = document.getElementById('damageImages');
+            const modalLocation = document.getElementById('modalLocation');
+
+            let previouslyFocusedElement = null;
+
+            // Fungsi untuk membuka modal
+            function openRoadDamageModal(damageData) {
+                previouslyFocusedElement = document.activeElement; // Simpan elemen yang sedang fokus
+
+                // Isi konten modal dengan data dari `damageData`
+                modalTitle.textContent = damageData.title;
+                modalDescription.textContent = `Total: ${damageData.totalCracks} retakan. Lokasi: ${damageData.locationName} (${damageData.lat}, ${damageData.lng})`;
+                modalLocation.dataset.lat = damageData.lat; // Simpan lat di data attribute
+                modalLocation.dataset.lng = damageData.lng; // Simpan lng di data attribute
+
+                // Isi jenis retakan
+                crackTypesContainer.innerHTML = '<h3 class="text-lg font-semibold mb-2">Jumlah Retakan per Jenis:</h3>';
+                for (const type in damageData.crackTypes) {
+                    const p = document.createElement('p');
+                    p.className = 'text-gray-700';
+                    p.textContent = `- ${type}: ${damageData.crackTypes[type]} retakan`;
+                    crackTypesContainer.appendChild(p);
+                }
+
+                // Isi galeri gambar
+                damageImagesContainer.innerHTML = ''; // Kosongkan dulu
+                damageData.imageUrls.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = 'Kerusakan Jalan';
+                    img.className = 'w-32 h-32 object-cover rounded-md shadow-md hover:scale-105 transition-transform duration-200 cursor-pointer'; // Ukuran gambar tetap, otomatis flex wrap
+                    // Tambahkan event klik
+
+                    img.addEventListener('click', () => {
+                        modalImage.src = url;
+                        imageModal.classList.remove("hidden");
+                    });
+
+                    damageImagesContainer.appendChild(img);
+                });
+
+                roadDamageModal.classList.remove('hidden');
+                // Animasi muncul
+                requestAnimationFrame(() => {
+                    roadDamageModal.classList.remove('opacity-0', 'scale-95');
+                    roadDamageModal.classList.add('opacity-100', 'scale-100');
+                    closeModalBtn.focus(); // Fokus ke tombol tutup untuk aksesibilitas
+                });
+            }
+
+            // Fungsi untuk menutup modal
+            function closeRoadDamageModal() {
+                roadDamageModal.classList.remove('opacity-100', 'scale-100');
+                roadDamageModal.classList.add('opacity-0', 'scale-95');
+                // Tunggu transisi selesai sebelum menyembunyikan sepenuhnya
+                roadDamageModal.addEventListener('transitionend', function handler() {
+                    roadDamageModal.classList.add('hidden');
+                    roadDamageModal.removeEventListener('transitionend', handler);
+                    if (previouslyFocusedElement) {
+                        previouslyFocusedElement.focus(); // Kembalikan fokus ke elemen sebelumnya
+                    }
+                });
+            }
+
+            closeModalBtn.addEventListener('click', closeRoadDamageModal);
+            roadDamageModal.addEventListener('click', function(e) {
+                if (e.target === roadDamageModal) { // Hanya jika klik di backdrop
+                    closeRoadDamageModal();
+                }
+            });
+
+            // Tutup modal dengan tombol Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !roadDamageModal.classList.contains('hidden')) {
+                    closeRoadDamageModal();
+                }
+            });
+
+            document.getElementById("command").textContent = "Start"
+            window.openModal = function(modalId) {
+                document.getElementById(modalId).style.display = 'block'
+                document.getElementsByTagName('body')[0].classList.add('overflow-y-hidden')
+            }
+
+            window.closeModal = function(modalId, command) {
+                document.getElementById(modalId).style.display = 'none'
+                document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
+                if (command == 1){
+                    let commandStatus = document.getElementById("command").textContent
+                    if (commandStatus == "Start"){
+                        let startInsp = startInspection();
+                        if (startInsp){
+                            document.getElementById("startInspection").textContent = "End Inspection"
+                            document.getElementById("startInspection").classList.remove("menu_color")
+                            document.getElementById("startInspection").classList.add("on_proccess")
+                            document.getElementById("command").textContent = "End"
+                            document.getElementById("command").classList.remove("menu_color")
+                            document.getElementById("command").classList.add("on_proccess")
+                        }
+                    } else {
+                        let endInsp = endInspection();
+                        if (endInsp){
+                            document.getElementById("startInspection").textContent = "Start Inspection"
+                            document.getElementById("startInspection").classList.remove("on_proccess")
+                            document.getElementById("startInspection").classList.add("menu_color")
+                            document.getElementById("command").textContent = "Start"
+                            document.getElementById("command").classList.remove("on_proccess")
+                            document.getElementById("command").classList.add("menu_color")
+                        }
+                    }
+
                 }
             }
 
-        }
-    }
+            // Close all modals when press ESC
+            document.onkeydown = function(event) {
+                event = event || window.event;
+                if (event.keyCode === 27) {
+                    document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
+                    let modals = document.getElementsByClassName('modal');
+                    Array.prototype.slice.call(modals).forEach(i => {
+                        i.style.display = 'none'
+                    })
+                }
+            };
 
-    // Close all modals when press ESC
-    document.onkeydown = function(event) {
-        event = event || window.event;
-        if (event.keyCode === 27) {
-            document.getElementsByTagName('body')[0].classList.remove('overflow-y-hidden')
-            let modals = document.getElementsByClassName('modal');
-            Array.prototype.slice.call(modals).forEach(i => {
-                i.style.display = 'none'
-            })
-        }
-    };
-
-    async function startInspection(){
-        try {
-            const apiUrl = "http://127.0.0.1:5000/rdd/start"; // URL endpoint API
-
-            const response = await fetch(apiUrl, {
-              method: "GET", // Metode HTTP
-              headers: {
-                "Content-Type": "application/json", // Memberikan tipe konten JSON
-              },
-            });
-
-            // Periksa status respons
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+            function startInspect(inspectionId, cracksId){
+                // Tambahkan penanda pada lokasi pengguna
+                L.marker([lat, lon]).addTo(map).bindPopup("Inspection Start Point").openPopup();
+                // socket.emit('on-click-map', { inspection_id: inspectionId, cracks_id: cracksId });
             }
 
-            // Parsing respons menjadi JSON
-            const result = await response.json();
-            console.log("Response from API:", result);
-            return result['status'];
-          } catch (error) {
-            console.error("Error sending data:", error);
-            return 0;
-          }
-    }
+        //     //
+        //     Preview Image Function     //
+            const imageModal = document.getElementById("imageModal");
+            const modalImage = document.getElementById("modalImage");
+            const closeModalImage = document.getElementById("closeModal");
 
-    async function endInspection(){
-        try {
-            const apiUrl = "http://127.0.0.1:5000/rdd/end"; // URL endpoint API
-            const response = await fetch(apiUrl, {
-              method: "GET", // Metode HTTP
-              headers: {
-                "Content-Type": "application/json", // Memberikan tipe konten JSON
-              },
+            // Tutup modal
+            closeModalImage.addEventListener("click", () => {
+                imageModal.classList.add("hidden");
+            });
+            // Tutup modal kalau klik area luar gambar
+            imageModal.addEventListener("click", (e) => {
+                if (e.target === imageModal) {
+                    imageModal.classList.add("hidden");
+                }
             });
 
-            // Periksa status respons
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+        //     //
+        //     Socket IO Function     //
+
+            socket.on('connect', function() {
+                console.log("✅ Connected to server");
+            });
+
+            socket.on('initial_notifications', function(data) {
+                console.log('Received initial notifications:', data);
+            });
+
+            const countCracks = (arr, val) => arr.reduce((count, currentVal) => {
+              return currentVal === val ? count + 1 : count;
+            }, 0);
+
+            socket.on('clickMap', function(data) {
+                console.log(data['cracks']);
+                let coordinat = data['cracks']['coordinat'].split(',').map(item => parseFloat(item, 10));
+                console.log(coordinat);
+
+                let crack_type = data['cracks']['damage_type'].split(',').map(item => parseInt(item, 10));
+                console.log(crack_type);
+
+                let statistik = {
+                    "retak_buaya": countCracks(crack_type, 0),
+                    "retak_memanjang": countCracks(crack_type, 1),
+                    "retak_melintang": countCracks(crack_type, 2),
+                    "lubang": countCracks(crack_type, 3),
+                    "total": crack_type.length,
+                }
+                console.log(statistik);
+                console.log(data['image']);
+
+                const damageData = {
+                    title: `Ditemukan ${statistik['total']} Kerusakan Jalan`,
+                    totalCracks: statistik['total'],
+                    locationName: 'Jalan Pahlawan, Jakarta',
+                    lat: coordinat[0], // Contoh Latitude
+                    lng: coordinat[1], // Contoh Longitude
+                    crackTypes: {
+                        'Retak Buaya': statistik['retak_buaya'],
+                        'Retak Memanjang': statistik['retak_memanjang'],
+                        'Retak Melintang': statistik['retak_melintang'],
+                        'Lubang': statistik['lubang']
+                    },
+                    imageUrls: data['image']
+                };
+                openRoadDamageModal(damageData);
+            });
+
+            socket.on('frame', (data) => {
+                const blob = new Blob([data], { type: "image/jpeg" });
+                const url = URL.createObjectURL(blob);
+                img.src = url;
+            });
+
+            socket.on('data_update', function(data) {
+                console.log("📥 data_update: ", data);
+                if (max_toast>0){
+                    let toastElement = document.querySelector("#scrollableContent");
+                    if (toastElement.lastChild) {
+                        toastElement.removeChild(toastElement.lastChild);
+                    }
+                    max_toast = 1
+                }
+                createToast(data);
+                max_toast = max_toast -1;
+            });
+
+            socket.on('map_update', function(data) {
+                console.log("📥 map_update: ", data);
+                updateLocation(data, map);
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Disconnected from Socket.IO server.');
+            });
+
+            //     //
+            //     Click Map Function     //
+
+            // Fungsi untuk menutup modal
+            function closeRoadDamageModal() {
+                roadDamageModal.classList.remove('opacity-100', 'scale-100');
+                roadDamageModal.classList.add('opacity-0', 'scale-95');
+                // Tunggu transisi selesai sebelum menyembunyikan sepenuhnya
+                roadDamageModal.addEventListener('transitionend', function handler() {
+                    roadDamageModal.classList.add('hidden');
+                    roadDamageModal.removeEventListener('transitionend', handler);
+                    if (previouslyFocusedElement) {
+                        previouslyFocusedElement.focus(); // Kembalikan fokus ke elemen sebelumnya
+                    }
+                });
             }
 
-            // Parsing respons menjadi JSON
-            const result = await response.json();
-            console.log("Response from API:", result);
-            return result['status'];
-          } catch (error) {
-            console.error("Error sending data:", error);
-          }
-    }
+            // Event Listeners
+            // openPopupBtn.addEventListener('click', openRoadDamageModal);
+            closeModalBtn.addEventListener('click', closeRoadDamageModal);
+            roadDamageModal.addEventListener('click', function(e) {
+                if (e.target === roadDamageModal) { // Hanya jika klik di backdrop
+                    closeRoadDamageModal();
+                }
+            });
 
-</script>
+            // Event Listener untuk tombol "Lihat di Google Maps"
+            googleMapsBtn.addEventListener('click', function() {
+                const lat = modalLocation.dataset.lat;
+                const lng = modalLocation.dataset.lng;
+                if (lat && lng) {
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+                }
+            });
+
+            // Tutup modal dengan tombol Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !roadDamageModal.classList.contains('hidden')) {
+                    closeRoadDamageModal();
+                }
+            });
+
+            //     //
+            //     Inspection Function Function     //
+
+            async function startInspection(){
+                try {
+                    const apiUrl = "http://127.0.0.1:5050/rdd/start"; // URL endpoint API
+
+                    const response = await fetch(apiUrl, {
+                      method: "GET", // Metode HTTP
+                      headers: {
+                        "Content-Type": "application/json", // Memberikan tipe konten JSON
+                      },
+                    });
+
+                    // Periksa status respons
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    // Parsing respons menjadi JSON
+                    const result = await response.json();
+                    console.log("Response from API:", result);
+                    return result['status'];
+                } catch (error) {
+                    console.error("Error sending data:", error);
+                    return 0;
+                }
+
+            }
+
+            async function endInspection(){
+                try {
+                    const apiUrl = "http://127.0.0.1:5050/rdd/end"; // URL endpoint API
+                    const response = await fetch(apiUrl, {
+                      method: "GET", // Metode HTTP
+                      headers: {
+                        "Content-Type": "application/json", // Memberikan tipe konten JSON
+                      },
+                    });
+
+                    // Periksa status respons
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    // Parsing respons menjadi JSON
+                    const result = await response.json();
+                    console.log("Response from API:", result);
+                    return result['status'];
+                  } catch (error) {
+                    console.error("Error sending data:", error);
+                  }
+            }
+
+
+        </script>
+
+
+
 
     {% endblock %}

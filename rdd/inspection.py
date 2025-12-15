@@ -1,8 +1,9 @@
-import os, cv2
+import os, cv2, time
 import sqlite3
 import gpxpy
 import gpxpy.gpx
 from math import radians, sin, cos, sqrt, atan2
+from flask_socketio import SocketIO
 
 
 def connect_to_database(db_path='db/rdd.sqlite'):
@@ -14,7 +15,6 @@ def connect_to_database(db_path='db/rdd.sqlite'):
     except sqlite3.Error as e:
         print(f"Error saat menghubungkan ke database: {e}")
         return False
-
 
 def create_inspection_folder(inspection_id, location, time):
     base_path = os.path.join(os.getcwd(), 'assets/inspections')  # Path ke folder assets
@@ -50,7 +50,7 @@ def displacement(lat1, lon1, lat2, lon2):
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
     # Menghitung jarak
-    return r * c
+    return int(r * c)
 
 
 def save_cracks(inspection_id, cracks):
@@ -95,10 +95,11 @@ def get_cracks(inspection_id, coordinat):
     conn = connect_to_database()
     if conn:
         cursor = conn.cursor()
-        query = "SELECT damage_type " \
+        query = "SELECT * " \
                 "FROM Detections " \
                 "WHERE inspection_id = {0} " \
                 "AND coordinat = '{1}' ".format(inspection_id, coordinat)
+        print(query)
         cursor.execute(query)
         row = cursor.fetchone()
         if row is None:
@@ -107,6 +108,25 @@ def get_cracks(inspection_id, coordinat):
         inspection = dict(row)
         print(inspection)
         return inspection
+    else:
+        return False
+
+def get_all_cracks(inspection_id):
+    conn = connect_to_database()
+    if conn:
+        cursor = conn.cursor()
+        query = "SELECT * " \
+                "FROM Detections " \
+                "WHERE inspection_id = {0} ".format(inspection_id)
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        if rows is None:
+            cursor.close()
+            return False
+        detection = []
+        for row in rows:
+            detection.append(dict(row))
+        return detection
     else:
         return False
 
@@ -218,6 +238,60 @@ def create_inspection(location):
             conn.close()
     return status
 
+def getInspectionByDate(date):
+    conn = connect_to_database()
+    if conn:
+        cursor = conn.cursor()
+        query = "SELECT location, id, inspect_at, count_crack, count_longitudinal_cracks, count_transverse_cracks, count_alligator_cracks, count_potholes " \
+                "FROM Inspections " \
+                "WHERE DATE(inspect_at) = '{0}' ".format(date)
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        if rows is None:
+            cursor.close()
+            return False
+        inspection = []
+        for row in rows:
+            inspection.append(dict(row))  # row bisa diubah ke dict (kalau cursor dict-compatible)
+        print("Inspection:", inspection)
+        return inspection
+    else:
+        return False
+def check_inspection_status():
+    status = False
+    conn = connect_to_database()
+    if conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM Inspections WHERE status = FALSE"
+        cursor.execute(query)
+        row = cursor.fetchone()
+        if row is not None:
+            status = row[0]
+        print(status)
+        cursor.close()
+    return status
+
+
+def end_inspection(inspection_id):
+    status = False
+    conn = connect_to_database()
+    if conn:
+        cursor = conn.cursor()
+        query = "UPDATE Inspections SET status = TRUE WHERE id = ?"
+        values = (inspection_id,)
+        try:
+            cursor.execute(query, values)
+            conn.commit()
+            if cursor.rowcount > 0:
+                status = True  # Update berhasil
+            else:
+                print("No rows updated. Check if the ID exists.")
+        except Exception as e:
+            print("Database update error:", e)
+            conn.rollback()  # Rollback jika terjadi kesalahan
+        finally:
+            conn.close()
+    return status
 
 def save_mapping(locations, output_file="location.gpx"):
     # Membuat objek GPX

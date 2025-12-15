@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemberitahuan Kerusakan Jalan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="font-sans antialiased bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <button id="openPopupBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+        Tampilkan Pemberitahuan Kerusakan Jalan
+    </button>
+
+    <div id="roadDamageModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out opacity-0">
+        <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4 transform scale-95 transition-transform duration-300 ease-in-out">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 id="modalTitle" class="text-2xl font-bold text-gray-800"></h2>
+                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="text-gray-700 mb-6">
+                <p id="modalDescription" class="mb-4 text-lg"></p>
+
+                <div id="crackTypes" class="mb-6">
+                    <h3 class="text-lg font-semibold mb-2">Jumlah Retakan per Jenis:</h3>
+                    </div>
+
+                <div id="damageImages" class="flex flex-wrap gap-3 justify-center">
+                    </div>
+            </div>
+
+            <div class="flex justify-end pt-4 border-t">
+                <button id="googleMapsBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                    Lihat di Google Maps
+                </button>
+            </div>
+            <span id="modalLocation" class="hidden" data-lat="" data-lng=""></span>
+        </div>
+    </div>
+
+    <script>
+        // Ambil referensi elemen DOM
+const openPopupBtn = document.getElementById('openPopupBtn');
+const roadDamageModal = document.getElementById('roadDamageModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const modalTitle = document.getElementById('modalTitle');
+const modalDescription = document.getElementById('modalDescription');
+const crackTypesContainer = document.getElementById('crackTypes');
+const damageImagesContainer = document.getElementById('damageImages');
+const modalLocation = document.getElementById('modalLocation');
+const googleMapsBtn = document.getElementById('googleMapsBtn');
+
+let previouslyFocusedElement = null; // Untuk menyimpan elemen yang membuka modal
+
+// --- Contoh Data Kerusakan Jalan ---
+// Ini adalah data yang akan ditampilkan di popup.
+// Anda bisa mendapatkan data ini dari API atau sumber lainnya dalam aplikasi nyata.
+const damageData = {
+    title: 'Ditemukan 5 Kerusakan Jalan',
+    totalCracks: 5,
+    locationName: 'Jalan Pahlawan, Jakarta',
+    lat: -6.1754, // Contoh Latitude
+    lng: 106.8271, // Contoh Longitude
+    crackTypes: {
+        'Retak Buaya': 2,
+        'Retak Memanjang': 1,
+        'Retak Melintang': 1,
+        'Lubang': 1
+    },
+    imageUrls: [
+        'https://via.placeholder.com/150/FF0000/FFFFFF?text=Kerusakan_1',
+        'https://via.placeholder.com/150/00FF00/FFFFFF?text=Kerusakan_2',
+        'https://via.placeholder.com/150/0000FF/FFFFFF?text=Kerusakan_3',
+        'https://via.placeholder.com/150/FFFF00/000000?text=Kerusakan_4',
+        'https://via.placeholder.com/150/00FFFF/000000?text=Kerusakan_5',
+        'https://via.placeholder.com/150/FF00FF/FFFFFF?text=Kerusakan_6' // Lebih dari 5 gambar untuk demonstrasi flex-wrap
+    ]
+};
+
+// Fungsi untuk membuka modal
+function openRoadDamageModal() {
+    previouslyFocusedElement = document.activeElement; // Simpan elemen yang sedang fokus
+
+    // Isi konten modal dengan data dari `damageData`
+    modalTitle.textContent = damageData.title;
+    modalDescription.textContent = `Total: ${damageData.totalCracks} retakan. Lokasi: ${damageData.locationName} (${damageData.lat}, ${damageData.lng})`;
+    modalLocation.dataset.lat = damageData.lat; // Simpan lat di data attribute
+    modalLocation.dataset.lng = damageData.lng; // Simpan lng di data attribute
+
+    // Isi jenis retakan
+    crackTypesContainer.innerHTML = '<h3 class="text-lg font-semibold mb-2">Jumlah Retakan per Jenis:</h3>';
+    for (const type in damageData.crackTypes) {
+        const p = document.createElement('p');
+        p.className = 'text-gray-700';
+        p.textContent = `- ${type}: ${damageData.crackTypes[type]} retakan`;
+        crackTypesContainer.appendChild(p);
+    }
+
+    // Isi galeri gambar
+    damageImagesContainer.innerHTML = ''; // Kosongkan dulu
+    damageData.imageUrls.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'Kerusakan Jalan';
+        img.className = 'w-32 h-32 object-cover rounded-md shadow-md hover:scale-105 transition-transform duration-200 cursor-pointer'; // Ukuran gambar tetap, otomatis flex wrap
+        damageImagesContainer.appendChild(img);
+    });
+
+    roadDamageModal.classList.remove('hidden');
+    // Animasi muncul
+    requestAnimationFrame(() => {
+        roadDamageModal.classList.remove('opacity-0', 'scale-95');
+        roadDamageModal.classList.add('opacity-100', 'scale-100');
+        closeModalBtn.focus(); // Fokus ke tombol tutup untuk aksesibilitas
+    });
+}
+
+// Fungsi untuk menutup modal
+function closeRoadDamageModal() {
+    roadDamageModal.classList.remove('opacity-100', 'scale-100');
+    roadDamageModal.classList.add('opacity-0', 'scale-95');
+    // Tunggu transisi selesai sebelum menyembunyikan sepenuhnya
+    roadDamageModal.addEventListener('transitionend', function handler() {
+        roadDamageModal.classList.add('hidden');
+        roadDamageModal.removeEventListener('transitionend', handler);
+        if (previouslyFocusedElement) {
+            previouslyFocusedElement.focus(); // Kembalikan fokus ke elemen sebelumnya
+        }
+    });
+}
+
+// Event Listeners
+openPopupBtn.addEventListener('click', openRoadDamageModal);
+closeModalBtn.addEventListener('click', closeRoadDamageModal);
+roadDamageModal.addEventListener('click', function(e) {
+    if (e.target === roadDamageModal) { // Hanya jika klik di backdrop
+        closeRoadDamageModal();
+    }
+});
+
+// Event Listener untuk tombol "Lihat di Google Maps"
+googleMapsBtn.addEventListener('click', function() {
+    const lat = modalLocation.dataset.lat;
+    const lng = modalLocation.dataset.lng;
+    if (lat && lng) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+    }
+});
+
+// Tutup modal dengan tombol Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !roadDamageModal.classList.contains('hidden')) {
+        closeRoadDamageModal();
+    }
+});
+    </script>
+</body>
+</html>

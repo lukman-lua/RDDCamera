@@ -5,8 +5,8 @@ from ultralytics import YOLO
 # Load the YOLO model
 model = YOLO("model/best.pt")
 
-video_path = "./Jetson_IMX519_Focus_Example/output_1.avi"
-output_video_path = "./output_detected_video.avi"  # Output video path
+video_path = "video/0300713R1.mp4"
+output_video_path = "video/0300713R1_detected.mp4"  # Output video path
 
 cap = cv2.VideoCapture(video_path)
 
@@ -33,7 +33,7 @@ while True:
         break
 
     # Proses deteksi dengan YOLO menggunakan model.detect()
-    results = model.detect(frame)  # Menggunakan model.detect() untuk deteksi objek
+    results = model(frame)  # Menggunakan model.detect() untuk deteksi objek
     
     # Loop untuk menggambar bounding box dan menambahkan ID
     for result in results:

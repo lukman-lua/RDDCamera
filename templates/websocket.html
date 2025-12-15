@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Webcam Stream</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Webcam Stream (via WebSocket)</h1>
+    <img id="video-stream" width="640" height="480">
+
+    <script>
+        const socket = io();
+        const img = document.getElementById('video-stream');
+
+        socket.on('frame', (data) => {
+            img.src = 'data:image/jpeg;base64,' + data.data;
+        });
+    </script>
+</body>
+</html>

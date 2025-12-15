@@ -1,11 +1,9 @@
 import time
 from datetime import datetime
-import cv2, threading, os
-from flask import Flask, request, Response, render_template, jsonify
+import cv2, os
+from flask import Flask, Response, render_template, jsonify
 from ultralytics import YOLO
-from queue import Queue
-from inspection import save_cracks, create_inspection, update_inspections, displacement, update_cracks, \
-    create_inspection_folder
+from rdd.inspection import save_cracks, create_inspection, update_inspections, displacement, create_inspection_folder
 
 app = Flask(__name__, static_folder='assets')
 
