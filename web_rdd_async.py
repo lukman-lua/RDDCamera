@@ -182,10 +182,6 @@ def generate_frames(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
         detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status
 
-    if data["detected"] and inspect_status:
-        print("detected")
-        socketio.start_background_task(tracking_handler, data)
-
     # ===== Decode frame =====
     nparr = np.frombuffer(data["frame"], np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -194,6 +190,7 @@ def generate_frames(data):
     _, buffer = cv2.imencode(".jpg", frame)
     socketio.emit('frame', buffer.tobytes())
 
+@socketio.on("detected")
 def tracking_handler(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
         detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status

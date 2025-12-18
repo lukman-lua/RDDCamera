@@ -87,6 +87,51 @@
             </div>
 
            <div class="container-camera mt-5 ml-6">
+
+               <div class="flex justify-center items-center w-full p-4 space-x-4">
+                    <button onclick="/* function Anda di sini */"
+                            id="OpenCamera"
+                            class="
+                                bg-emerald-600 hover:bg-emerald-700
+                                text-white font-bold
+                                py-2 px-4 rounded-lg
+                                transition duration-150 ease-in-out
+                                flex items-center space-x-2
+                                shadow-md hover:shadow-lg
+                            ">
+                        <i class="fas fa-video"></i>
+                        <span>Open Camera</span>
+                    </button>
+
+                    <button onclick="/* function Anda di sini */"
+                            id="CloseCamera"
+                            class="
+                                bg-red-700 hover:bg-red-800
+                                text-white font-bold
+                                py-2 px-4 rounded-lg
+                                transition duration-150 ease-in-out
+                                flex items-center space-x-2
+                                shadow-md hover:shadow-lg
+                            ">
+                        <i class="fas fa-stop-circle"></i>
+                        <span>Close Camera</span>
+                    </button>
+
+                    <button onclick="/* function Anda di sini */"
+                            id="AutoFocus"
+                            class="
+                                bg-indigo-700 hover:bg-indigo-800
+                                text-white font-bold
+                                py-2 px-4 rounded-lg
+                                transition duration-150 ease-in-out
+                                flex items-center space-x-2
+                                shadow-md hover:shadow-lg
+                            ">
+                        <i class="fas fa-crosshairs"></i>
+                        <span>Auto Focus</span>
+                    </button>
+                </div>
+
                <img id="video-stream"  alt="Webcam Stream" class="responsive-image">
            </div>
 
@@ -626,6 +671,31 @@
                     console.error("Error sending data:", error);
                   }
             }
+
+            // --- 1. Event Handler untuk Open Camera (start_stream) ---
+            document.getElementById('OpenCamera').addEventListener('click', function() {
+                // Menampilkan notifikasi atau perubahan UI sementara
+                console.log("Meminta pembukaan kamera...");
+
+                // Mengirim event 'start_stream' ke server Socket.IO
+                socket.emit('start_stream', { data: 'Start command requested' });
+            });
+
+            // --- 2. Event Handler untuk Close Camera (stop_stream) ---
+            document.getElementById('CloseCamera').addEventListener('click', function() {
+                console.log("Meminta penutupan kamera...");
+
+                // Mengirim event 'stop_stream' ke server Socket.IO
+                socket.emit('stop_stream', { data: 'Stop command requested' });
+            });
+
+            // --- 3. Event Handler untuk Auto Focus (autofocus) ---
+            document.getElementById('AutoFocus').addEventListener('click', function() {
+                console.log("Meminta fokus otomatis...");
+
+                // Mengirim event 'autofocus' ke server Socket.IO
+                socket.emit('autofocus', { data: 'trigger' });
+            });
 
 
         </script>
