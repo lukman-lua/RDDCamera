@@ -25,10 +25,6 @@ geolocator = Nominatim(user_agent="my_geocoder")
 model = YOLO("model/best.pt")
 location_file = "gps_04_20_07_14_test.csv"
 
-# Open the video file
-video_path = "testvd.mp4" # change with camera
-# cap = cv2.VideoCapture(video_path)
-# cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 detect_start = True
 
 stop_event = threading.Event()
@@ -186,13 +182,13 @@ def generate_frames(data):
         print("detected")
         socketio.start_background_task(tracking_handler, data)
 
-    # ===== Decode frame =====
-    nparr = np.frombuffer(data["frame"], np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    # ===== Overlay =====
-    frame = draw_overlay(frame, data['fps'], data["speed"])
-    _, buffer = cv2.imencode(".jpg", frame)
-    socketio.emit('frame', buffer.tobytes())
+    # # ===== Decode frame =====
+    # nparr = np.frombuffer(data["frame"], np.uint8)
+    # frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    # # ===== Overlay =====
+    # frame = draw_overlay(frame, data['fps'], data["speed"])
+    # _, buffer = cv2.imencode(".jpg", frame)
+    socketio.emit('frame', data["frame"])
 
 def tracking_handler(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
@@ -263,7 +259,7 @@ def tracking_handler(data):
             crack_data_list.append(cracks_batch.copy())
             crack_batch_now += 1
             # Update informasi kerusakan batch terbaru
-            old_coordinat = data
+            old_coordinat = data["location"]
             cracks_batch["image"] = crack_file_name
             cracks_batch["type"] = str(data["list_type"].pop(0))
             for crack_type in data["list_type"]:

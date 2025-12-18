@@ -623,7 +623,7 @@
 
             async function startInspection(){
                 try {
-                    const apiUrl = "http://127.0.0.1:5050/rdd/start"; // URL endpoint API
+                    const apiUrl = "http://localhost:5050/rdd/start"; // URL endpoint API
 
                     const response = await fetch(apiUrl, {
                       method: "GET", // Metode HTTP
@@ -650,7 +650,7 @@
 
             async function endInspection(){
                 try {
-                    const apiUrl = "http://127.0.0.1:5050/rdd/end"; // URL endpoint API
+                    const apiUrl = "http://localhost:5050/rdd/end"; // URL endpoint API
                     const response = await fetch(apiUrl, {
                       method: "GET", // Metode HTTP
                       headers: {
