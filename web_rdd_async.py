@@ -182,13 +182,7 @@ def generate_frames(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
         detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status
 
-    # ===== Decode frame =====
-    nparr = np.frombuffer(data["frame"], np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    # ===== Overlay =====
-    frame = draw_overlay(frame, data['fps'], data["speed"])
-    _, buffer = cv2.imencode(".jpg", frame)
-    socketio.emit('frame', buffer.tobytes())
+    socketio.emit('frame', data["frame"])
 
 @socketio.on("detected")
 def tracking_handler(data):
@@ -197,86 +191,86 @@ def tracking_handler(data):
 
     print("Detected inspection")
     print("Detected ID : ", data["list_id"])
+    if data["detected"] and inspect_status:
+        if max(data["list_id"]) > now_cracks_id:
+            print("Cracking ID : ", data["list_id"])
+            now_cracks_id = max(data["list_id"])
 
-    if max(data["list_id"]) > now_cracks_id:
-        print("Cracking ID : ", data["list_id"])
-        now_cracks_id = max(data["list_id"])
+            # Menyimpan gambar kerusakan ke folder assets
+            crack_file_name = "{0}_{1}_{2}.jpg".format(
+                str(now_inspection_id),
+                now_cracks_id,
+                datetime.now().strftime('%H_%M_%S')
+            )
 
-        # Menyimpan gambar kerusakan ke folder assets
-        crack_file_name = "{0}_{1}_{2}.jpg".format(
-            str(now_inspection_id),
-            now_cracks_id,
-            datetime.now().strftime('%H_%M_%S')
-        )
-
-        np_arr = np.frombuffer(data["frame"], np.uint8)
-        img_to_save = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        save_frame_to_assets(
-            img_to_save,
-            crack_file_name,
-            now_inspection_folder
-        )
-        with app.app_context():
-            image_url = url_for(
-                'static',
-                filename="inspections/{0}/{1}".format(
-                    now_inspection_folder,
-                    crack_file_name
+            np_arr = np.frombuffer(data["frame"], np.uint8)
+            img_to_save = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            save_frame_to_assets(
+                img_to_save,
+                crack_file_name,
+                now_inspection_folder
+            )
+            with app.app_context():
+                image_url = url_for(
+                    'static',
+                    filename="inspections/{0}/{1}".format(
+                        now_inspection_folder,
+                        crack_file_name
+                    )
                 )
+
+            print("location : ", data["location"])
+
+            socketio.emit(
+                'data_update',
+                {
+                    'jenis': data["list_type"],
+                    'image': image_url,
+                    'count': len(data["list_type"]),
+                    'location': data["location"],
+                },
+                namespace='/'
             )
 
-        print("location : ", data["location"])
+            inspection_session_data["count_crack"] += len(data["list_type"])
+            inspection_session_data["count_longitudinal_cracks"] += data["list_type"].count(0)
+            inspection_session_data["count_transverse_cracks"] += data["list_type"].count(1)
+            inspection_session_data["count_alligator_cracks"] += data["list_type"].count(2)
+            inspection_session_data["count_potholes"] += data["list_type"].count(3)
 
-        socketio.emit(
-            'data_update',
-            {
-                'jenis': data["list_type"],
-                'image': image_url,
-                'count': len(data["list_type"]),
-                'location': data["location"],
-            },
-            namespace='/'
-        )
+            if old_coordinat is not None:
+                coordinat_displacement = displacement(
+                    old_coordinat[0], old_coordinat[1],
+                    data["location"][0], data["location"][1]
+                )
+                print("coordinat_displacement : ", coordinat_displacement)
+            else:
+                print("old is none")
+                coordinat_displacement = 0
 
-        inspection_session_data["count_crack"] += len(data["list_type"])
-        inspection_session_data["count_longitudinal_cracks"] += data["list_type"].count(0)
-        inspection_session_data["count_transverse_cracks"] += data["list_type"].count(1)
-        inspection_session_data["count_alligator_cracks"] += data["list_type"].count(2)
-        inspection_session_data["count_potholes"] += data["list_type"].count(3)
-
-        if old_coordinat is not None:
-            coordinat_displacement = displacement(
-                old_coordinat[0], old_coordinat[1],
-                data["location"][0], data["location"][1]
-            )
-            print("coordinat_displacement : ", coordinat_displacement)
-        else:
-            print("old is none")
-            coordinat_displacement = 0
-
-        if coordinat_displacement > 30:
-            # Simpan data kerusakan batch sebelumnya ke list daftar kerusakan
-            cracks_batch["coordinat"] = old_coordinat
-            crack_data_list.append(cracks_batch.copy())
-            crack_batch_now += 1
-            # Update informasi kerusakan batch terbaru
-            old_coordinat = data
-            cracks_batch["image"] = crack_file_name
-            cracks_batch["type"] = str(data["list_type"].pop(0))
-            for crack_type in data["list_type"]:
-                cracks_batch["type"] += "," + str(crack_type)
-        else:
-            if coordinat_displacement == 0:
-                old_coordinat = data["location"]
-            if cracks_batch["image"] == "":
-                print("New image")
+            if coordinat_displacement > 30:
+                # Simpan data kerusakan batch sebelumnya ke list daftar kerusakan
+                cracks_batch["coordinat"] = old_coordinat
+                crack_data_list.append(cracks_batch.copy())
+                crack_batch_now += 1
+                # Update informasi kerusakan batch terbaru
+                old_coordinat = data
                 cracks_batch["image"] = crack_file_name
                 cracks_batch["type"] = str(data["list_type"].pop(0))
+                for crack_type in data["list_type"]:
+                    cracks_batch["type"] += "," + str(crack_type)
             else:
-                print("Add image")
-                cracks_batch["image"] += "," + crack_file_name
-            for crack_type in data["list_type"]:
-                cracks_batch["type"] += "," + str(crack_type)
+                if coordinat_displacement == 0:
+                    old_coordinat = data["location"]
+                if cracks_batch["image"] == "":
+                    print("New image")
+                    cracks_batch["image"] = crack_file_name
+                    cracks_batch["type"] = str(data["list_type"].pop(0))
+                else:
+                    print("Add image")
+                    cracks_batch["image"] += "," + crack_file_name
+                for crack_type in data["list_type"]:
+                    cracks_batch["type"] += "," + str(crack_type)
 
 
 if inspect_status and crack_batch_now > 0:
