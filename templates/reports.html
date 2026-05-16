@@ -18,7 +18,10 @@
             <div class="basis-1/2">
                 <p class="text-xs font-bold">Tanggal Inspeksi</p>
                 <form action="" class="relative w-fit">
-                    <input type="date" name="" id="dateChanges" class="md:w-[288px] w-100 h-[32px] rounded-[8px] border-[#AEADAD] border text-xs px-6">
+                    <input type="date"
+                           name=""
+                           id="dateChanges"
+                           class="md:w-[288px] w-100 h-[32px] rounded-[8px] border-[#AEADAD] border text-xs px-6">
                 </form>
             </div>
         </div>
@@ -96,6 +99,26 @@
     if (mm < 10) mm = '0' + mm;
 
     const formattedToday = yyyy + '-' + mm + '-' + dd;
+
+
+    const dateInput = document.getElementById('dateChanges');
+
+    // Ambil tanggal GMT+7
+    function getGMT7Date() {
+        const now = new Date();
+        const gmt7 = new Date(now.getTime() + ((7 - now.getTimezoneOffset() / 60) * 60 * 60 * 1000));
+        return gmt7.toISOString().split('T')[0];
+    }
+
+    // Set default tanggal hari ini
+    dateInput.value = getGMT7Date();
+
+    // Auto change event ketika tanggal berubah
+    dateInput.addEventListener('change', function () {
+        console.log('Tanggal berubah:', this.value);
+        socket.emit('report_click', {
+        date: document.getElementById("dateChanges").value,
+    });
 
     var map = ''
     var markers = ''
