@@ -3,15 +3,12 @@ import numpy as np
 
 eventlet.monkey_patch()
 
-import csv
 from geopy.geocoders import Nominatim
 from datetime import datetime
-import cv2, os, threading, base64, time
+import cv2, os, threading, base64
 from flask import Flask, render_template, jsonify, url_for
-from ultralytics import YOLO
 from flask_socketio import SocketIO, emit
 from rdd.inspection import save_cracks, create_inspection, update_inspections, displacement, create_inspection_folder, connect_to_database, get_cracks, end_inspection, getInspectionByDate, get_all_cracks
-from rdd.gps import getSpeed
 
 app = Flask(__name__, static_folder='assets')
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -21,18 +18,8 @@ app.config["PREFERRED_URL_SCHEME"] = "http"
 # Inisialisasi geolocator
 geolocator = Nominatim(user_agent="my_geocoder")
 
-# Load the YOLO11 model
-model = YOLO("model/best.pt")
-location_file = "gps_04_20_07_14_test.csv"
-
-gps_lat = 0.0
-gps_lon = 0.0
-gps_speed = 0
-
 # Open the video file
-video_path = "testvd.mp4" # change with camera
-# cap = cv2.VideoCapture(video_path)
-# cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+video_path = "testvd.mp4"
 detect_start = True
 
 stop_event = threading.Event()
@@ -76,53 +63,7 @@ inspection_session_data = {
     "count_potholes": 0,
 }
 
-# Video writer
-fps = 20
-frame_size = (640, 360)
-
-filename = datetime.now().strftime("output_%Y%m%d_%H%M%S.mp4")
-video_writer = cv2.VideoWriter(
-    filename,
-    cv2.VideoWriter_fourcc(*"mp4v"),
-    fps,
-    frame_size
-)
-
-
-
-def load_gps_data(csv_path):
-    gps_data = []
-
-    with open(csv_path, mode='r') as file:
-        # Lewati baris sampai menemukan header yang benar
-        while True:
-            pos = file.tell()
-            line = file.readline()
-            if line.startswith("Timestamp,Latitude,Longitude"):
-                file.seek(pos)
-                break
-
-        reader = csv.DictReader(file)
-        for row in reader:
-            try:
-                timestamp = datetime.fromisoformat(row['Timestamp'])
-                latitude = float(row['Latitude'])
-                longitude = float(row['Longitude'])
-
-                gps_data.append({
-                    'timestamp': timestamp,
-                    'latitude': latitude,
-                    'longitude': longitude
-                })
-            except Exception as e:
-                print(f"Skipping row due to error: {e}")
-                continue
-
-    return gps_data
-
-data_gps = load_gps_data(location_file)
-
-
+# <<<<<<<<<< Function >>>>>>>>>>
 def save_frame_to_assets(frame, filename, inspection_folder):
     # Tentukan path folder assets
     assets_folder = os.path.join(
@@ -140,14 +81,6 @@ def save_frame_to_assets(frame, filename, inspection_folder):
     # Simpan frame sebagai JPG
     cv2.imwrite(file_path, frame)
     print(f"Frame berhasil disimpan di: {file_path}")
-
-
-def getLocation(start_time):
-    global data_gps
-    # current_time = time.time()
-    # seconds = int(current_time - start_time)
-    return [data_gps[start_time]['latitude'], data_gps[start_time]['longitude']]
-
 
 def check_db_updates():
     global socketio,check_db
@@ -192,98 +125,22 @@ def draw_overlay(frame, fps, speed):
     return frame
 
 
+# <<<<<<<<<< Inspection Route >>>>>>>>>>
 @socketio.on("camera_frame")
 def generate_frames(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
-        detect_start, now_inspection_folder, now_inspection_id,\
-        now_cracks_id, inspect_status, gps_lat, gps_lon, gps_speed
+        detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status
 
-    # =========================
-    # Decode JPEG bytes ke frame OpenCV
-    # =========================
-    nparr = np.frombuffer(data["frame"], np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    # Ambil data dari socket
-    fps = data.get("fps")
-    speed_kmh = gps_speed
-    current_lat = round(gps_lat, 6)
-    current_lon = round(gps_lon, 6)
-
-    # =========================
-    # Tambahkan text overlay
-    # =========================
-
-    speed_text = f"Speed: {speed_kmh:.2f} km/h"
-    cv2.putText(
-        frame,
-        speed_text,
-        (10, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2,
-        cv2.LINE_AA
-    )
-
-    fps_text = f"FPS: {fps}"
-    cv2.putText(
-        frame,
-        fps_text,
-        (10, 70),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 255),
-        2,
-        cv2.LINE_AA
-    )
-
-    lat_text = f"Lat : {current_lat}"
-    cv2.putText(
-        frame,
-        lat_text,
-        (10, 110),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 255),
-        2,
-        cv2.LINE_AA
-    )
-
-    lon_text = f"Lon : {current_lon}"
-    cv2.putText(
-        frame,
-        lon_text,
-        (10, 150),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 255),
-        2,
-        cv2.LINE_AA
-    )
-
-    # =========================
-    # Encode ulang ke JPEG
-    # =========================
-    _, buffer = cv2.imencode('.jpg', frame)
-
-    # simpan ke video
-    video_writer.write(frame)
-    socketio.emit('frame', {
-        'frame': buffer.tobytes(),
-        "send_time": data["send_time"],
-    })
+    socketio.emit('frame', data["frame"])
 
 @socketio.on("detected")
 def tracking_handler(data):
     global old_coordinat, crack_batch_now, inspection_batch_now, \
-        detect_start, now_inspection_folder, now_inspection_id, \
-        now_cracks_id, inspect_status, gps_lat, gps_lon, gps_speed
+        detect_start, now_inspection_folder, now_inspection_id, now_cracks_id, inspect_status
 
-    current_loc = [gps_lat, gps_lon]
     print("Detected inspection")
     print("Detected ID : ", data["list_id"])
-    if inspect_status:
+    if data["detected"] and inspect_status:
         if max(data["list_id"]) > now_cracks_id:
             print("Cracking ID : ", data["list_id"])
             now_cracks_id = max(data["list_id"])
@@ -311,13 +168,15 @@ def tracking_handler(data):
                     )
                 )
 
+            print("location : ", data["location"])
+
             socketio.emit(
                 'data_update',
                 {
                     'jenis': data["list_type"],
                     'image': image_url,
                     'count': len(data["list_type"]),
-                    'location': current_loc,
+                    'location': data["location"],
                 },
                 namespace='/'
             )
@@ -331,7 +190,7 @@ def tracking_handler(data):
             if old_coordinat is not None:
                 coordinat_displacement = displacement(
                     old_coordinat[0], old_coordinat[1],
-                    current_loc[0], current_loc[1]
+                    data["location"][0], data["location"][1]
                 )
                 print("coordinat_displacement : ", coordinat_displacement)
             else:
@@ -344,14 +203,14 @@ def tracking_handler(data):
                 crack_data_list.append(cracks_batch.copy())
                 crack_batch_now += 1
                 # Update informasi kerusakan batch terbaru
-                old_coordinat = current_loc
+                old_coordinat = data
                 cracks_batch["image"] = crack_file_name
                 cracks_batch["type"] = str(data["list_type"].pop(0))
                 for crack_type in data["list_type"]:
                     cracks_batch["type"] += "," + str(crack_type)
             else:
                 if coordinat_displacement == 0:
-                    old_coordinat = current_loc
+                    old_coordinat = data["location"]
                 if cracks_batch["image"] == "":
                     print("New image")
                     cracks_batch["image"] = crack_file_name
@@ -362,73 +221,57 @@ def tracking_handler(data):
                 for crack_type in data["list_type"]:
                     cracks_batch["type"] += "," + str(crack_type)
 
-        if inspect_status and crack_batch_now > 0:
-            print("crack_data_list : ", crack_data_list)
-            save_status = save_cracks(now_inspection_id, crack_data_list)
-            if save_status:
 
-                save_inspects = update_inspections(now_inspection_id, inspection_session_data)
-                if save_inspects:
-                    # Update informasi inspeksi batch terbaru
-                    inspection_session_data["count_crack"] = 0
-                    inspection_session_data["count_longitudinal_cracks"] = 0
-                    inspection_session_data["count_transverse_cracks"] = 0
-                    inspection_session_data["count_alligator_cracks"] = 0
-                    inspection_session_data["count_potholes"] = 0
-                else:
-                    print("Gagal Menyimpan inspection_session_data")
-                for crack_data in crack_data_list:
-                    socketio.emit(
-                        'map_update',
-                        {
-                            'inspection_id': now_inspection_id,
-                            'location': crack_data['coordinat'],
-                        },
-                        namespace='/'
-                    )
-                crack_data_list.clear()
-                crack_batch_now = 0
-            else:
-                print("Gagal Menyimpan crack_data_list")
+if inspect_status and crack_batch_now > 0:
+    print("crack_data_list : ", crack_data_list)
+    save_status = save_cracks(now_inspection_id, crack_data_list)
+    if save_status:
 
-@app.route("/")
-def beranda():
-    socketio.emit("run_stop_stream", {"data": "ini data"})
-    return render_template(
-        "beranda.html",
-        data={'menu': 'rdd'}
-    )
-
-@app.route("/report")
-def report():
-    return render_template(
-        "reports.html",
-        data={'menu': 'report'}
-    )
+        save_inspects = update_inspections(now_inspection_id, inspection_session_data)
+        if save_inspects:
+            # Update informasi inspeksi batch terbaru
+            inspection_session_data["count_crack"] = 0
+            inspection_session_data["count_longitudinal_cracks"] = 0
+            inspection_session_data["count_transverse_cracks"] = 0
+            inspection_session_data["count_alligator_cracks"] = 0
+            inspection_session_data["count_potholes"] = 0
+        else:
+            print("Gagal Menyimpan inspection_session_data")
+        for crack_data in crack_data_list:
+            socketio.emit(
+                'map_update',
+                {
+                    'inspection_id': now_inspection_id,
+                    'location': crack_data['coordinat'],
+                },
+                namespace='/'
+            )
+        crack_data_list.clear()
+        crack_batch_now = 0
+    else:
+        print("Gagal Menyimpan crack_data_list")
 
 def location_to_adress(lat, lon):
     global geolocator
     location = geolocator.reverse((lat, lon), language="id")
     return location.address if location else None
 
-@socketio.on('report_changes')
-def onClickCracks(data):
-    date = data.get('date')
-    report_list = getInspectionByDate(date)
-    for rp in report_list:
-        lat, lon = rp['location'].split(',')
-        rp['address'] = location_to_adress(float(lat), float(lon))
-    emit('report_update', {'report': report_list})
+@socketio.on('on-click-map')
+def onClickMap(data):
+    inspection_id = data.get('inspection_id')
+    cracks_coordinat = data.get('coordinat')
 
-@socketio.on('location')
-def updateGPS(data):
-    global gps_speed, gps_lat, gps_lon
-    gps_lat = data.get('lat')
-    gps_lon = data.get('lon')
-    gps_speed = data.get('speed')
-    print("location: ", data)
-    #socketio.emit('location_update', data)
+    cracks = get_cracks(inspection_id, cracks_coordinat)
+    image_list = cracks["image"].split(",")
+    with app.app_context():
+        image_url = [ url_for(
+            'static',
+            filename="inspections/{0}/{1}".format(now_inspection_folder, image_name))
+            for image_name in image_list]
+    emit('clickMap', {'cracks': cracks, 'image':image_url})
 
+
+# <<<<<<<<<< Camera Route >>>>>>>>>>
 @socketio.on('start_stream')
 def handle_start_stream(data):
     print(f"Perintah 'start_stream' diterima. Meneruskan ke Server 2...")
@@ -445,6 +288,55 @@ def handle_autofocus(data):
     print(f"Perintah 'autofocus' diterima. Meneruskan ke Server 2...")
     socketio.emit('run_autofocus', data)
 
+
+# <<<<<<<<<< Report Route >>>>>>>>>>
+@socketio.on('report_click')
+def reportClick(data):
+    inspection_id = data.get('inspection_id')
+    cracks_coordinat = data.get('coordinat')
+
+    cracks = get_all_cracks(inspection_id)
+    inspection_folder = "{0}_{1}".format(inspection_id, cracks_coordinat)
+    base_url = url_for(
+        'static',
+        filename="inspections/{0}/".format(inspection_folder)
+    )
+    emit('more_report', {'cracks': cracks,'base_url':base_url})
+
+@socketio.on('report_changes')
+def onClickCracks(data):
+    date = data.get('date')
+    report_list = getInspectionByDate(date)
+    for rp in report_list:
+        lat, lon = rp['location'].split(',')
+        rp['address'] = location_to_adress(float(lat), float(lon))
+    emit('report_update', {'report': report_list})
+
+
+@socketio.on('date_changes')
+def onClickDates(data):
+    date = data.get('date')
+    report_list = getInspectionByDate(date)
+    for rp in report_list:
+        lat, lon = rp['location'].split(',')
+        rp['address'] = location_to_adress(float(lat), float(lon))
+
+# <<<<<<<<<< ROUTE >>>>>>>>>>
+@app.route("/")
+def beranda():
+    socketio.emit("run_stop_stream", {"data": "ini data"})
+    return render_template(
+        "beranda.html",
+        data={'menu': 'rdd'}
+    )
+
+@app.route("/report")
+def report():
+    return render_template(
+        "reports.html",
+        data={'menu': 'report'}
+    )
+
 @app.route("/rdd")
 def rdd():
     socketio.emit("run_start_stream", {"data":"ini data"})
@@ -456,14 +348,12 @@ def rdd():
         }
     )
 
-
 @app.route("/rdd/start")
 def start_inspect():
     global inspect_status, now_inspection_folder, data_gps, \
         now_inspection_id, thread, stop_event
 
     # tambahkan code mengambil lokasi
-    # location = getlocation()
     inspection = create_inspection(
         "{0},{1}".format(
             data_gps[590]['latitude'], data_gps[590]['longitude']
@@ -490,10 +380,9 @@ def start_inspect():
         "status": status
     })
 
-
 @app.route("/rdd/end")
 def end_inspect():
-    global inspect_status, now_inspection_id, stop_event, thread, video_writer
+    global inspect_status, now_inspection_id, stop_event, thread
     status = False
     print("end inspect id : ", now_inspection_id)
     if crack_batch_now >= 1:
@@ -522,17 +411,18 @@ def end_inspect():
 
             inspect_status = False
             status = True
-    video_writer.release()
+
     return jsonify({
         "message": "Inspection End",
         "status": status
     })
 
-
 @app.route("/keluar")
 def keluar():
     return render_template("keluar.html")
 
+
+# <<<<<<<<<< Connection >>>>>>>>>>
 @socketio.on('connect')
 def test_connect():
     global check_db
@@ -541,33 +431,6 @@ def test_connect():
     if check_db['last_id']:
         emit('initial_notifications', {'data': 'ini data'})
 
-@socketio.on('on-click-map')
-def onClickMap(data):
-    inspection_id = data.get('inspection_id')
-    cracks_coordinat = data.get('coordinat')
-
-    cracks = get_cracks(inspection_id, cracks_coordinat)
-    image_list = cracks["image"].split(",")
-    with app.app_context():
-        image_url = [ url_for(
-            'static',
-            filename="inspections/{0}/{1}".format(now_inspection_folder, image_name))
-            for image_name in image_list]
-    emit('clickMap', {'cracks': cracks, 'image':image_url})
-
-@socketio.on('report_click')
-def reportClick(data):
-    inspection_id = data.get('inspection_id')
-    cracks_coordinat = data.get('coordinat')
-
-    cracks = get_all_cracks(inspection_id)
-    inspection_folder = "{0}_{1}".format(inspection_id, cracks_coordinat)
-    base_url = url_for(
-        'static',
-        filename="inspections/{0}/".format(inspection_folder)
-    )
-    emit('more_report', {'cracks': cracks,'base_url':base_url})
-
 @socketio.on('disconnect')
 def test_disconnect():
     print('Client disconnected')
@@ -575,12 +438,3 @@ def test_disconnect():
 if __name__ == "__main__":
     # Jalankan server Flask + Socket.IO
     socketio.run(app, debug=True, host='0.0.0.0', port=5050, allow_unsafe_werkzeug=True)
-
-# socketio = SocketIO(app, cors_allowed_origins="*")
-# # === Dari Server 1 (Jetson) ===
-# @socketio.on('camera_frame')vweb_rdd_async.py
-# def handle_camera_frame(data):
-#     # Broadcast ke semua browser client
-#     socketio.emit('frame', data)
-# if __name__ == '__main__':
-#     socketio.run(app, host='0.0.0.0', port=5050)

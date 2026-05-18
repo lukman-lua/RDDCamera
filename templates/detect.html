@@ -221,8 +221,8 @@
             // Buat fungsi untuk menginisiasi peta
             function initMap(position) {
               // Dapatkan koordinat dari geolokasi
-              var lat = -0.9147898986919377;
-              var lon = 100.45887357348603;
+              var lat = -0.90982714;
+              var lon = 100.64300678;
 
               // Buat peta Leaflet dan set view ke lokasi pengguna
               map = L.map('map').setView([lat, lon], 20);
@@ -549,9 +549,14 @@
             });
 
             socket.on('frame', (data) => {
-                const blob = new Blob([data], { type: "image/jpeg" });
+                const receiveTime = Date.now() / 1000;
+
+                const blob = new Blob([data["frame"]], { type: "image/jpeg" });
                 const url = URL.createObjectURL(blob);
                 img.src = url;
+                const sendTime = data["send_time"];
+                const delay = receiveTime - sendTime;
+                console.log("Delay stream:", delay, "detik");
             });
 
             socket.on('data_update', function(data) {
